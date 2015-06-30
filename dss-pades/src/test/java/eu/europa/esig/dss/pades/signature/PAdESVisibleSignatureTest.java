@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Date;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -92,7 +93,7 @@ public class PAdESVisibleSignatureTest {
 	@Test
 	public void testGeneratedImageOnly() throws IOException {
 		SignatureImageParameters imageParameters = new SignatureImageParameters();
-		imageParameters.setImage(new File("src/test/resources/small-red.jpg"));
+		imageParameters.setImage(FileUtils.readFileToByteArray(new File("src/test/resources/small-red.jpg")));
 		imageParameters.setxAxis(100);
 		imageParameters.setyAxis(100);
 		signatureParameters.setImageParameters(imageParameters);
@@ -103,7 +104,7 @@ public class PAdESVisibleSignatureTest {
 	@Test
 	public void testGeneratedImageAndTextOnTop() throws IOException {
 		SignatureImageParameters imageParameters = new SignatureImageParameters();
-		imageParameters.setImage(new File("src/test/resources/small-red.jpg"));
+		imageParameters.setImage(FileUtils.readFileToByteArray(new File("src/test/resources/small-red.jpg")));
 		imageParameters.setxAxis(200);
 		imageParameters.setyAxis(300);
 		SignatureImageTextParameters textParameters = new SignatureImageTextParameters();
@@ -120,7 +121,7 @@ public class PAdESVisibleSignatureTest {
 	@Test
 	public void testGeneratedImageAndTextOnLeft() throws IOException {
 		SignatureImageParameters imageParameters = new SignatureImageParameters();
-		imageParameters.setImage(new File("src/test/resources/small-red.jpg"));
+		imageParameters.setImage(FileUtils.readFileToByteArray(new File("src/test/resources/small-red.jpg")));
 		imageParameters.setxAxis(200);
 		imageParameters.setyAxis(300);
 		SignatureImageTextParameters textParameters = new SignatureImageTextParameters();

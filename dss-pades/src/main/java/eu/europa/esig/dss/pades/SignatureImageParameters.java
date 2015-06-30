@@ -20,7 +20,8 @@
  */
 package eu.europa.esig.dss.pades;
 
-import java.io.File;
+import eu.europa.esig.dss.pades.SignatureImageTextParameters;
+
 
 /**
  * Parameters for a visible signature creation
@@ -28,72 +29,72 @@ import java.io.File;
  */
 public class SignatureImageParameters {
 
-	public static final int DEFAULT_PAGE = 1;
+    public static final int DEFAULT_PAGE = 1;
 
-	/**
-	 * This variable contains the image to use (company logo,...)
-	 */
-	private File image;
+    /**
+     * This variable contains the image to use (company logo,...)
+     */
+    private byte[] image;
 
-	/**
-	 * This variable defines the page where the image will appear (1st page by
-	 * default)
-	 */
-	private int page = DEFAULT_PAGE;
+    /**
+     * This variable defines the page where the image will appear (1st page by
+     * default)
+     */
+    private int page = DEFAULT_PAGE;
 
-	/**
-	 * This variable defines the position of the image in the PDF page (X axis)
-	 */
-	private float xAxis;
+    /**
+     * This variable defines the position of the image in the PDF page (X axis)
+     */
+    private float xAxis;
 
-	/**
-	 * This variable defines the position of the image in the PDF page (Y axis)
-	 */
-	private float yAxis;
+    /**
+     * This variable defines the position of the image in the PDF page (Y axis)
+     */
+    private float yAxis;
 
-	/**
-	 * This variable is use to defines the text to generate on the image
-	 */
-	private SignatureImageTextParameters textParameters;
+    /**
+     * This variable is use to defines the text to generate on the image
+     */
+    private SignatureImageTextParameters textParameters;
 
-	public File getImage() {
-		return image;
-	}
+    public byte[] getImage() {
+        return image;
+    }
 
-	public void setImage(File image) {
-		this.image = image;
-	}
+    public void setImage(byte[] image) {
+        this.image = image;
+    }
 
-	public float getxAxis() {
-		return xAxis;
-	}
+    public float getxAxis() {
+        return xAxis;
+    }
 
-	public void setxAxis(float xAxis) {
-		this.xAxis = xAxis;
-	}
+    public void setxAxis(float xAxis) {
+        this.xAxis = xAxis;
+    }
 
-	public float getyAxis() {
-		return yAxis;
-	}
+    public float getyAxis() {
+        return yAxis;
+    }
 
-	public void setyAxis(float yAxis) {
-		this.yAxis = yAxis;
-	}
+    public void setyAxis(float yAxis) {
+        this.yAxis = yAxis;
+    }
 
-	public int getPage() {
-		return page;
-	}
+    public int getPage() {
+        return page;
+    }
 
-	public void setPage(int page) {
-		this.page = page;
-	}
+    public void setPage(int page) {
+        this.page = page;
+    }
 
-	public SignatureImageTextParameters getTextParameters() {
-		return textParameters;
-	}
+    public SignatureImageTextParameters getTextParameters() {
+        return textParameters;
+    }
 
-	public void setTextParameters(SignatureImageTextParameters textParameters) {
-		this.textParameters = textParameters;
-	}
+    public void setTextParameters(SignatureImageTextParameters textParameters) {
+        this.textParameters = textParameters;
+    }
 
 }

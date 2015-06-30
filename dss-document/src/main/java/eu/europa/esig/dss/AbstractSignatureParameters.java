@@ -35,7 +35,7 @@ import eu.europa.esig.dss.x509.CertificateToken;
 public abstract class AbstractSignatureParameters implements Serializable {
 
 	/**
-	 * This field contains the signing certificate.
+     * This field contains the signing certificate.
 	 */
 	private CertificateToken signingCertificate;
 
@@ -390,4 +390,8 @@ public abstract class AbstractSignatureParameters implements Serializable {
 				", detachedContent=" + detachedContent +
 				'}';
 	}
+
+    public void setDeterministicId(String deterministicId) {
+        this.deterministicId = deterministicId;
+    }
 }

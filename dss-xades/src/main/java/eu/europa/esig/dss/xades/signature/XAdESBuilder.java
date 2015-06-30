@@ -50,8 +50,12 @@ public abstract class XAdESBuilder {
 	public static final String DS_CANONICALIZATION_METHOD = "ds:CanonicalizationMethod";
 	public static final String DS_DIGEST_METHOD = "ds:DigestMethod";
 	public static final String DS_DIGEST_VALUE = "ds:DigestValue";
+	public static final String DS_EXPONENT = "ds:Exponent";
 	public static final String DS_KEY_INFO = "ds:KeyInfo";
+	public static final String DS_KEY_VALUE = "ds:KeyValue";
+	public static final String DS_MODULUS = "ds:Modulus";
 	public static final String DS_OBJECT = "ds:Object";
+	public static final String DS_RSA_KEY_VALUE = "ds:RSAKeyValue";
 	public static final String DS_REFERENCE = "ds:Reference";
 	public static final String DS_SIGNATURE = "ds:Signature";
 	public static final String DS_SIGNATURE_METHOD = "ds:SignatureMethod";
@@ -111,7 +115,8 @@ public abstract class XAdESBuilder {
 	public static final String XADES_STATE_OR_PROVINCE = "xades:StateOrProvince";
 
 	public static final String XADES141_ARCHIVE_TIME_STAMP = "xades141:ArchiveTimeStamp";
-
+	public static final String XADES141_ENCAPSULATED_TIME_STAMP = "xades141:EncapsulatedTimeStamp";
+	
 	public static final String ALGORITHM = "Algorithm";
 	public static final String ID = "Id";
 	public static final String OBJECT_REFERENCE = "ObjectReference";

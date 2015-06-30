@@ -305,7 +305,13 @@ public class XAdESLevelBaselineT extends ExtensionBuilder implements SignatureEx
 			incorporateC14nMethod(timeStampDom, timestampC14nMethod);
 
 			// <xades:EncapsulatedTimeStamp Id="time-stamp-token-6a150419-caab-4615-9a0b-6e239596643a">MIAGCSqGSIb3DQEH
-			final Element encapsulatedTimeStampDom = DSSXMLUtils.addElement(documentDom, timeStampDom, XAdES, XADES_ENCAPSULATED_TIME_STAMP);
+			Element encapsulatedTimeStampDom = null;
+			if (timestampType == TimestampType.ARCHIVE_TIMESTAMP) {
+			    encapsulatedTimeStampDom = DSSXMLUtils.addElement(documentDom, timeStampDom, XAdES, XADES141_ENCAPSULATED_TIME_STAMP);
+            }else{
+                encapsulatedTimeStampDom = DSSXMLUtils.addElement(documentDom, timeStampDom, XAdES, XADES_ENCAPSULATED_TIME_STAMP);
+            }
+			
 			encapsulatedTimeStampDom.setAttribute(ID, "ETS-" + timestampId);
 			DSSXMLUtils.setTextNode(documentDom, encapsulatedTimeStampDom, base64EncodedTimeStampToken);
 		} catch (IOException e) {

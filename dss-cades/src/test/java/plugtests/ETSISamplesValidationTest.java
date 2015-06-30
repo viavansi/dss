@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -24,6 +25,7 @@ import eu.europa.esig.dss.validation.report.SimpleReport;
  * This test is only to ensure that we don't have exception with valid? files
  */
 @RunWith(Parameterized.class)
+@Ignore
 public class ETSISamplesValidationTest {
 
 	@Parameters(name = "Validation {index} : {0}")

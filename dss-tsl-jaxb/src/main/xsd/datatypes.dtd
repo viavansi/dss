@@ -92,7 +92,8 @@
 <!ENTITY % fixedAttr "fixed %boolean; #IMPLIED">
 <!ENTITY % facetModel "(%annotation;)?">
 <!ELEMENT %simpleType;
-        ((%annotation;)?, (%restriction; | %list; | %union;))>
+        ((%annotation;)?, 
+        (%restriction; | %list; | %union;))>
 <!ATTLIST %simpleType;
     name      %NCName; #IMPLIED
     final     %simpleDerivationSet; #IMPLIED

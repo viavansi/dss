@@ -138,7 +138,7 @@
 							<goal>test</goal>
 						</goals>
 						<configuration>
-							<skipTests>false</skipTests>
+							<skipTests>true</skipTests>
 							<testFailureIgnore>true</testFailureIgnore>
 							<includes>
 								<include>plugtests/**/*Test.java</include>

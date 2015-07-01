@@ -60,7 +60,7 @@ public class XAdESLevelXLTest extends AbstractTestSignature {
 		signatureParameters.setSigningCertificate(privateKeyEntry.getCertificate());
 		signatureParameters.setCertificateChain(privateKeyEntry.getCertificateChain());
 		signatureParameters.setSignaturePackaging(SignaturePackaging.ENVELOPING);
-		signatureParameters.setSignatureLevel(SignatureLevel.XAdES_XL);
+		signatureParameters.setSignatureLevel(SignatureLevel.XAdES_BASELINE_LT);
 
 		CertificateVerifier certificateVerifier = new CommonCertificateVerifier();
 		service = new XAdESService(certificateVerifier);

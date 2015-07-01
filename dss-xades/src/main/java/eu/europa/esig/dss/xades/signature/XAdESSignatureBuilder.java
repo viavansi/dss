@@ -190,8 +190,8 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         byte[] canonicalizedSignedInfo = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, signedInfoDom);
         if (LOG.isTraceEnabled()) {
             LOG.trace("Canonicalized SignedInfo         --> {}", new String(canonicalizedSignedInfo));
-            final byte[] digest = DSSUtils.digest(DigestAlgorithm.SHA256, canonicalizedSignedInfo);
-            LOG.trace("Canonicalized SignedInfo SHA256  --> {}", Base64.encodeBase64String(digest));
+            final byte[] digest = DSSUtils.digest(params.getDigestAlgorithm(), canonicalizedSignedInfo);
+            LOG.trace("Canonicalized SignedInfo " + params.getDigestAlgorithm().name() + "  --> {}", Base64.encodeBase64String(digest));
         }
         built = true;
         return canonicalizedSignedInfo;
@@ -261,33 +261,41 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         final Element x509DataDom = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_X509_DATA);
         final boolean trustAnchorBPPolicy = params.bLevel().isTrustAnchorBPPolicy();
         final CertificatePool certificatePool = getCertificatePool();
+        boolean firstCertificate = true; // The signing certificate can be directly in the TSL
+        for (final ChainCertificate chainCertificate : params.getCertificateChain()) {
 
+            final CertificateToken x509Certificate = chainCertificate.getX509Certificate();
+            if (trustAnchorBPPolicy && (certificatePool != null)) {
 
-        final CertificateToken x509Certificate = params.getSigningCertificate();
-        if (trustAnchorBPPolicy && (certificatePool != null)) {
-
+                if (!certificatePool.get(x509Certificate.getSubjectX500Principal()).isEmpty()) {
+                    if (firstCertificate) {
+                        addCertificate(x509DataDom, x509Certificate);
+                        //ds:KeyValue
+                        final Element keyValue = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_KEY_VALUE);
+                        //ds:RSAKeyValue
+                        final Element rsaKeyValue = DSSXMLUtils.addElement(documentDom, keyValue, XMLNS, DS_RSA_KEY_VALUE);
+                        RSAPublicKey rsaPublickey = (RSAPublicKey) x509Certificate.getCertificate().getPublicKey();
+                        BigInteger modulus = rsaPublickey.getModulus();
+                        String base64Modulus = wrapLines(new String(org.apache.commons.codec.binary.Base64.encodeBase64(modulus.toByteArray())), 76);
+                        DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
+                        String exponent = new String(org.apache.commons.codec.binary.Base64.encodeBase64(rsaPublickey.getPublicExponent().toByteArray()));
+                        DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
+                    }
+                    break;
+                }
+                firstCertificate = false;
+            }
             addCertificate(x509DataDom, x509Certificate);
-            //ds:KeyValue
-            final Element keyValue = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_KEY_VALUE);
-            //ds:RSAKeyValue
-            final Element rsaKeyValue = DSSXMLUtils.addElement(documentDom, keyValue, XMLNS, DS_RSA_KEY_VALUE);
-            RSAPublicKey rsaPublickey = (RSAPublicKey) x509Certificate.getCertificate().getPublicKey();
-            BigInteger modulus = rsaPublickey.getModulus();
-            String base64Modulus = wrapLines(new String(org.apache.commons.codec.binary.Base64.encodeBase64(modulus.toByteArray())), 76);
-            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
-            String exponent = new String(org.apache.commons.codec.binary.Base64.encodeBase64(rsaPublickey.getPublicExponent().toByteArray()));
-            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
-
         }
-
-        String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+        
+        //String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
         final Element reference = DSSXMLUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
         reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
         // <ds:Transforms>
         final Element transforms = DSSXMLUtils.addElement(documentDom, reference, XMLNS, DS_TRANSFORMS);
         // <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
         final Element transform = DSSXMLUtils.addElement(documentDom, transforms, XMLNS, DS_TRANSFORM);
-        transform.setAttribute(ALGORITHM, keyInfoCanonicalizationMethod);
+        transform.setAttribute(ALGORITHM, signedInfoCanonicalizationMethod);
         // </ds:Transforms>
 
         // <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
@@ -295,13 +303,12 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         incorporateDigestMethod(reference, digestAlgorithm);
 
         // <ds:DigestValue>b/JEDQH2S1Nfe4Z3GSVtObN34aVB1kMrEbVQZswThfQ=</ds:DigestValue>
-        final byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(keyInfoCanonicalizationMethod, keyInfoDom);
+        final byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, keyInfoDom);
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Canonicalization method  --> {}", keyInfoCanonicalizationMethod);
+            LOG.trace("Canonicalization method  --> {}", signedInfoCanonicalizationMethod);
             LOG.trace("Canonicalised REF_2      --> {}", new String(canonicalizedBytes));
         }
         incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
-
     }
 
     private void addCertificate(final Element x509DataDom, final CertificateToken x509Certificate) {

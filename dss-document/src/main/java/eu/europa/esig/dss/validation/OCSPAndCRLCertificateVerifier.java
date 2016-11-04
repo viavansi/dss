@@ -85,7 +85,7 @@ public class OCSPAndCRLCertificateVerifier implements CertificateStatusVerifier 
 
 	public RevocationToken checkOCSP(final CertificateToken certificateToken) {
 		final OCSPCertificateVerifier ocspVerifier = new OCSPCertificateVerifier(ocspSource, validationCertPool);
-		if (LOG.isDebugEnabled()) {
+		if (LOG.isDebugEnabled() && ocspSource != null) {
 			LOG.debug("OCSP request for: " + certificateToken.getDSSIdAsString() + " using: " + ocspSource.getClass().getSimpleName());
 		}
 		final RevocationToken revocation = ocspVerifier.check(certificateToken);
@@ -109,7 +109,7 @@ public class OCSPAndCRLCertificateVerifier implements CertificateStatusVerifier 
 		 * 
 		 */
 		final CRLCertificateVerifier crlVerifier = new CRLCertificateVerifier(crlSource);
-		if (LOG.isDebugEnabled()) {
+		if (LOG.isDebugEnabled() && crlSource != null) {
 			LOG.debug("CRL request for: " + certificateToken.getDSSIdAsString() + " using: " + crlSource.getClass().getSimpleName());
 		}
 		final RevocationToken revocationToken = crlVerifier.check(certificateToken);

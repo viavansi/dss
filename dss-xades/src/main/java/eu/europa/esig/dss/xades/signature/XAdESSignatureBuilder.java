@@ -24,6 +24,9 @@ import static eu.europa.esig.dss.xades.XAdESNamespaces.XAdES;
 import static javax.xml.crypto.dsig.XMLSignature.XMLNS;
 
 import java.math.BigInteger;
+import java.security.PublicKey;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.RSAKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
 import java.util.HashSet;
@@ -297,16 +300,20 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
 			}
 			addCertificate(x509DataDom, x509Certificate);
 			
-			//ds:KeyValue
-            final Element keyValue = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_KEY_VALUE);
-            //ds:RSAKeyValue
-            final Element rsaKeyValue = DSSXMLUtils.addElement(documentDom, keyValue, XMLNS, DS_RSA_KEY_VALUE);
-            RSAPublicKey rsaPublickey = (RSAPublicKey) x509Certificate.getCertificate().getPublicKey();
-            BigInteger modulus = rsaPublickey.getModulus();
-            String base64Modulus = wrapLines(new String(org.apache.commons.codec.binary.Base64.encodeBase64(modulus.toByteArray())), 76);
-            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
-            String exponent = new String(org.apache.commons.codec.binary.Base64.encodeBase64(rsaPublickey.getPublicExponent().toByteArray()));
-            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
+			PublicKey publickey = x509Certificate.getCertificate().getPublicKey();
+			if (publickey instanceof RSAPublicKey) {
+			    BigInteger modulus = ((RSAPublicKey) publickey).getModulus();
+			    String exponent = new String(org.apache.commons.codec.binary.Base64.encodeBase64(((RSAPublicKey) publickey).getPublicExponent().toByteArray()));
+			    
+			    //ds:KeyValue
+	            final Element keyValue = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_KEY_VALUE);
+	            //ds:RSAKeyValue
+	            final Element rsaKeyValue = DSSXMLUtils.addElement(documentDom, keyValue, XMLNS, DS_RSA_KEY_VALUE);
+	            String base64Modulus = wrapLines(new String(org.apache.commons.codec.binary.Base64.encodeBase64(modulus.toByteArray())), 76);
+	            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
+	            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
+			}
+			
 		}
 		
 		String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";

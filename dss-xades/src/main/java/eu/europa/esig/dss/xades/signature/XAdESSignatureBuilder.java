@@ -23,6 +23,8 @@ package eu.europa.esig.dss.xades.signature;
 import static eu.europa.esig.dss.xades.XAdESNamespaces.XAdES;
 import static javax.xml.crypto.dsig.XMLSignature.XMLNS;
 
+import java.math.BigInteger;
+import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -71,6 +73,11 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
 
 	private static final Logger LOG = LoggerFactory.getLogger(XAdESSignatureBuilder.class);
 
+	public static final String DS_KEY_VALUE = "ds:KeyValue";
+    public static final String DS_MODULUS = "ds:Modulus";
+    public static final String DS_EXPONENT = "ds:Exponent";
+    public static final String DS_RSA_KEY_VALUE = "ds:RSAKeyValue";
+    
 	/**
 	 * Indicates if the signature was already built. (Two steps building)
 	 */
@@ -272,6 +279,8 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
 
 		// <ds:KeyInfo>
 		final Element keyInfoDom = DSSXMLUtils.addElement(documentDom, signatureDom, XMLNS, DS_KEY_INFO);
+		keyInfoDom.setAttribute(ID, "KeyInfo-" + deterministicId);
+		
 		// <ds:X509Data>
 		final Element x509DataDom = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_X509_DATA);
 		final boolean trustAnchorBPPolicy = params.bLevel().isTrustAnchorBPPolicy();
@@ -287,8 +296,71 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
 				}
 			}
 			addCertificate(x509DataDom, x509Certificate);
+			
+			//ds:KeyValue
+            final Element keyValue = DSSXMLUtils.addElement(documentDom, keyInfoDom, XMLNS, DS_KEY_VALUE);
+            //ds:RSAKeyValue
+            final Element rsaKeyValue = DSSXMLUtils.addElement(documentDom, keyValue, XMLNS, DS_RSA_KEY_VALUE);
+            RSAPublicKey rsaPublickey = (RSAPublicKey) x509Certificate.getCertificate().getPublicKey();
+            BigInteger modulus = rsaPublickey.getModulus();
+            String base64Modulus = wrapLines(new String(org.apache.commons.codec.binary.Base64.encodeBase64(modulus.toByteArray())), 76);
+            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
+            String exponent = new String(org.apache.commons.codec.binary.Base64.encodeBase64(rsaPublickey.getPublicExponent().toByteArray()));
+            DSSXMLUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
 		}
+		
+		String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+		final Element reference = DSSXMLUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
+		reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
+		// <ds:Transforms>
+		final Element transforms = DSSXMLUtils.addElement(documentDom, reference, XMLNS, DS_TRANSFORMS);
+		// <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+		final Element transform = DSSXMLUtils.addElement(documentDom, transforms, XMLNS, DS_TRANSFORM);
+		transform.setAttribute(ALGORITHM, keyInfoCanonicalizationMethod);
+		// </ds:Transforms>
+		
+		// <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+		final DigestAlgorithm digestAlgorithm = params.getDigestAlgorithm();
+		incorporateDigestMethod(reference, digestAlgorithm);
+		
+		// <ds:DigestValue>b/JEDQH2S1Nfe4Z3GSVtObN34aVB1kMrEbVQZswThfQ=</ds:DigestValue>
+		final byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(keyInfoCanonicalizationMethod, keyInfoDom);
+		if (LOG.isTraceEnabled()) {
+		    LOG.trace("Canonicalization method  --> {}", keyInfoCanonicalizationMethod);
+		    LOG.trace("Canonicalised REF_2      --> {}", new String(canonicalizedBytes));
+		}
+		incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
 	}
+	
+	/**
+     * Do newline wrapping of a string
+     * 
+     * @param s
+     * @param len
+     * @return the wrapped string
+     */
+    public String wrapLines(String s, int len) {
+
+        /* invariant: points at the first character not yet copied */
+        int sPos = 0;
+
+        // sanity check
+        if (s == null) {
+            return null;
+        }
+        StringBuffer r = new StringBuffer();
+        while (sPos < s.length()) {
+            r.append(r.length() > 0 ? "\n" : "");
+            if (s.length() - sPos <= len) {
+                r.append(s.substring(sPos));
+                sPos = s.length();
+            } else {
+                r.append(s.substring(sPos, sPos + len));
+                sPos = sPos + len;
+            }
+        }
+        return r.toString();
+    }
 
 	private void addCertificate(final Element x509DataDom, final CertificateToken x509Certificate) {
 

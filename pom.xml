@@ -5,7 +5,7 @@
 
 	<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 	<artifactId>sd-dss</artifactId>
-	<version>4.7.0</version>
+	<version>4.7.0.V1</version>
 	<packaging>pom</packaging>
 	<name>Digital Signature Services</name>
 
@@ -106,7 +106,7 @@
 						</goals>
 						<configuration>
 							<skipTests>false</skipTests>
-							<testFailureIgnore>false</testFailureIgnore>
+							<testFailureIgnore>true</testFailureIgnore>
 							<includes>
 								<include>eu/**/*Test.java</include>
 							</includes>
@@ -120,7 +120,7 @@
 						</goals>
 						<configuration>
 							<skipTests>true</skipTests>
-							<testFailureIgnore>false</testFailureIgnore>
+							<testFailureIgnore>true</testFailureIgnore>
 							<includes>
 								<include>integration/**/*Test.java</include>
 							</includes>
@@ -682,17 +682,10 @@
 
 	<distributionManagement>
 		<repository>
-			<id>joinup-nexus</id>
-			<url>https://joinup.ec.europa.eu/nexus/content/repositories/releases/</url>
-		</repository>
-		<snapshotRepository>
-			<id>joinup-nexus</id>
-			<url>https://joinup.ec.europa.eu/nexus/content/repositories/snapshots</url>
-		</snapshotRepository>
-		<site>
-			<id>joinup-site</id>
-			<url>dav:https://joinup.ec.europa.eu/webdav/sd-dss/www</url>
-		</site>
+            <id>viavansi</id>
+            <name>Viavansi Repository</name>
+            <url>http://repositorio.viavansi.com/libs-releases-local</url>
+        </repository>
 	</distributionManagement>
 	
 	<issueManagement>

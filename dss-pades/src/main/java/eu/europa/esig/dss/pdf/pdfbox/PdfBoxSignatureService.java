@@ -100,7 +100,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 			toSignFile = DSSPDFUtils.getFileFromPdfData(toSignDocument);
 
 			pdDocument = PDDocument.load(toSignFile);
-			PDSignature pdSignature = createSignatureDictionary(parameters);
+			PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
 
 			signedFile = File.createTempFile("sd-dss-", "-signed.pdf");
 			final FileOutputStream fileOutputStream = DSSPDFUtils.getFileOutputStream(toSignFile, signedFile);
@@ -131,7 +131,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 			toSignFile = DSSPDFUtils.getFileFromPdfData(pdfData);
 
 			pdDocument = PDDocument.load(toSignFile);
-			final PDSignature pdSignature = createSignatureDictionary(parameters);
+			final PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
 
 			signedFile = File.createTempFile("sd-dss-", "-signed.pdf");
 			final FileOutputStream fileOutputStream = DSSPDFUtils.getFileOutputStream(toSignFile, signedFile);
@@ -217,7 +217,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 		}
 	}
 
-	private PDSignature createSignatureDictionary(final PAdESSignatureParameters parameters) {
+	private PDSignature createSignatureDictionary(final PAdESSignatureParameters parameters, PDDocument doc) {
 
 		final PDSignature signature = new PDSignature();
 		signature.setType(getType());
@@ -252,15 +252,56 @@ class PdfBoxSignatureService implements PDFSignatureService {
 			if (StringUtils.isNotEmpty(parameters.getReason())) {
 				signature.setReason(parameters.getReason());
 			}
+			
+			try {
+                List<PDSignature>  pdSignatures = doc.getSignatureDictionaries();
+                if (parameters.getCertifiedLevel() != null && CollectionUtils.isEmpty(pdSignatures)) {
+                    addCertificationLevel(parameters, doc, signature);
+                }
+            } catch (IOException e) {
+                throw new DSSException(e);
+            }
+            
 		}
-
+		
 		// the signing date, needed for valid signature
-		final Calendar cal = Calendar.getInstance();
-		final Date signingDate = parameters.bLevel().getSigningDate();
-		cal.setTime(signingDate);
-		signature.setSignDate(cal);
+        final Calendar cal = Calendar.getInstance();
+        final Date signingDate = parameters.bLevel().getSigningDate();
+        cal.setTime(signingDate);
+        signature.setSignDate(cal);
+		
 		return signature;
 	}
+
+    private void addCertificationLevel(final PAdESSignatureParameters parameters, PDDocument doc, final PDSignature signature) {
+        
+        // DocMDP thing
+        COSDictionary dictionary = (COSDictionary) signature.getCOSObject();
+        
+        //Create Permissions Dictionary
+        COSDictionary permissions = new COSDictionary();
+        permissions.setItem("DocMDP", signature);
+        
+        //Add Permissions to Catalog
+        COSDictionary catalog = (COSDictionary) doc.getDocumentCatalog().getCOSObject();
+        catalog.setItem("Perms", permissions);
+        // Create a reference dictionary
+        COSDictionary reference = new COSDictionary();
+        reference.setItem("Type", COSName.getPDFName("SigRef"));
+        reference.setItem("TransformMethod", COSName.getPDFName("DocMDP"));
+        reference.setItem("DigestMethod", COSName.getPDFName("SHA1"));
+        
+        // Now we add DocMDP specific stuff
+        COSDictionary transformParameters = new COSDictionary();
+        transformParameters.setItem("Type", COSName.getPDFName("TransformParams"));
+        transformParameters.setInt("P", parameters.getCertifiedLevel().getValue()); //
+        transformParameters.setItem("V", COSName.getPDFName("1.2"));
+        // Add everything in order
+        reference.setItem("TransformParams", transformParameters);
+        COSArray references = new COSArray();
+        references.add(reference); // Add SigRef Dictionary to a Array
+        dictionary.setItem("Reference", references); // Add Array to Signature dictionary
+    }
 
 	protected COSName getType() {
 		return COSName.SIG;

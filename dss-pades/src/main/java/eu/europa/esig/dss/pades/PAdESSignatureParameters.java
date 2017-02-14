@@ -1,5 +1,6 @@
 package eu.europa.esig.dss.pades;
 
+import eu.europa.esig.dss.CertifiedLevel;
 import eu.europa.esig.dss.cades.CAdESSignatureParameters;
 
 public class PAdESSignatureParameters extends CAdESSignatureParameters {
@@ -7,6 +8,7 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 	private String reason;
 	private String contactInfo;
 	private String location;
+	private CertifiedLevel certifiedLevel;
 
 	private int signatureSize = 9472; // default value in pdfbox
 
@@ -71,5 +73,13 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 	public void setSignatureSize(int signatureSize) {
 		this.signatureSize = signatureSize;
 	}
+
+    public CertifiedLevel getCertifiedLevel() {
+        return certifiedLevel;
+    }
+
+    public void setCertifiedLevel(CertifiedLevel certifiedLevel) {
+        this.certifiedLevel = certifiedLevel;
+    }
 
 }

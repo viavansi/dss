@@ -1082,7 +1082,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	 * @param xmlCert
 	 */
 	private void dealRevocationData(Set<DigestAlgorithm> usedDigestAlgorithms, final CertificateToken certToken, final XmlCertificate xmlCert) {
-		final Set<RevocationToken> revocationTokens = certToken.getRevocationTokens();
+		final Set<RevocationToken> revocationTokens = new HashSet<RevocationToken>(certToken.getRevocationTokens());
 		if (CollectionUtils.isNotEmpty(revocationTokens)) {
 			for (RevocationToken revocationToken : revocationTokens) {
 				final XmlRevocationType xmlRevocation = new XmlRevocationType();

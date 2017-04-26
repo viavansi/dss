@@ -1,17 +1,18 @@
 package eu.europa.esig.dss.pades;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.FileInputStream;
 import java.util.List;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.Test;
 
 import eu.europa.esig.dss.DSSUtils;
 import eu.europa.esig.dss.DigestAlgorithm;
+import eu.europa.esig.dss.utils.Utils;
 
 public class VRITest {
 
@@ -22,10 +23,11 @@ public class VRITest {
 
 		PDDocument pdDoc = PDDocument.load(new FileInputStream(path));
 		List<PDSignature> signatureDictionaries = pdDoc.getSignatureDictionaries();
+		assertTrue(Utils.isCollectionNotEmpty(signatureDictionaries));
 		PDSignature pdSignature = signatureDictionaries.get(0);
 		byte[] contents = pdSignature.getContents(new FileInputStream(path));
 		byte[] digest = DSSUtils.digest(DigestAlgorithm.SHA1, contents);
-		assertEquals(vriValue, Hex.encodeHexString(digest).toUpperCase());
+		assertEquals(vriValue, Utils.upperCase(Utils.toHex(digest)));
 
 		// We can't use CMSSignedData, the pdSignature content is trimmed (000000)
 	}

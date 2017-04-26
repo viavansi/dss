@@ -28,7 +28,6 @@ import java.io.File;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.Before;
@@ -41,12 +40,12 @@ import eu.europa.esig.dss.FileDocument;
 import eu.europa.esig.dss.MimeType;
 import eu.europa.esig.dss.SignatureAlgorithm;
 import eu.europa.esig.dss.SignatureLevel;
-import eu.europa.esig.dss.SignaturePackaging;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
 import eu.europa.esig.dss.signature.DocumentSignatureService;
 import eu.europa.esig.dss.test.gen.CertificateService;
 import eu.europa.esig.dss.test.mock.MockPrivateKeyEntry;
 import eu.europa.esig.dss.test.mock.MockTSPSource;
+import eu.europa.esig.dss.utils.Utils;
 import eu.europa.esig.dss.validation.CertificateVerifier;
 import eu.europa.esig.dss.validation.CommonCertificateVerifier;
 
@@ -68,7 +67,6 @@ public class PAdESLevelLTTest extends AbstractPAdESTestSignature {
 		signatureParameters.bLevel().setSigningDate(new Date());
 		signatureParameters.setSigningCertificate(privateKeyEntry.getCertificate());
 		signatureParameters.setCertificateChain(privateKeyEntry.getCertificateChain());
-		signatureParameters.setSignaturePackaging(SignaturePackaging.ENVELOPING);
 		signatureParameters.setSignatureLevel(SignatureLevel.PAdES_BASELINE_LT);
 
 		CertificateVerifier certificateVerifier = new CommonCertificateVerifier();
@@ -87,10 +85,10 @@ public class PAdESLevelLTTest extends AbstractPAdESTestSignature {
 			byte[] contents = pdSignature.getContents(byteArray);
 
 			byte[] digest = DSSUtils.digest(DigestAlgorithm.SHA1, contents);
-			String hex = Hex.encodeHexString(digest).toUpperCase();
+			String hex = Utils.toHex(digest);
 
 			String pdfString = new String(byteArray, "UTF-8");
-			assertTrue(pdfString.contains(hex));
+			assertTrue(pdfString.contains(Utils.upperCase(hex)));
 		} catch (Exception e) {
 			throw new DSSException(e);
 		}

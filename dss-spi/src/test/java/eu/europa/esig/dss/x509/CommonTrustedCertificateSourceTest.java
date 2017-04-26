@@ -4,8 +4,9 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.junit.Test;
+
+import eu.europa.esig.dss.utils.Utils;
 
 public class CommonTrustedCertificateSourceTest {
 
@@ -17,7 +18,7 @@ public class CommonTrustedCertificateSourceTest {
 		ctcs.importAsTrusted(keyStore);
 
 		List<CertificateToken> certificates = ctcs.getCertificates();
-		assertTrue(CollectionUtils.isNotEmpty(certificates));
+		assertTrue(Utils.isCollectionNotEmpty(certificates));
 	}
 
 }

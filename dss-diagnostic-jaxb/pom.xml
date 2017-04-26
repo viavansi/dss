@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>4.7.0.V3</version>
+		<version>5.0</version>
 	</parent>
 
 	<artifactId>dss-diagnostic-jaxb</artifactId>
@@ -43,6 +43,19 @@
 									<specVersion>2.1</specVersion>
 									<encoding>UTF-8</encoding>
 									<locale>en</locale>
+
+									<extension>true</extension>
+					                <args>
+					                    <arg>-Xxew</arg>
+					                    <arg>-Xxew:instantiate lazy</arg>
+					                </args>
+									 <plugins>
+					                    <plugin>
+					                        <groupId>com.github.jaxb-xew-plugin</groupId> <!-- Allows to add XmlElementWrapper -->
+					                        <artifactId>jaxb-xew-plugin</artifactId>
+                        					<version>1.7</version>
+					                    </plugin>
+					                </plugins>
 								</configuration>
 							</execution>
 						</executions>

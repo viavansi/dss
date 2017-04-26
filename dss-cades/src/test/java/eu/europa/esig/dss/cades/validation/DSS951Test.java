@@ -22,6 +22,8 @@ public class DSS951Test {
 		validator.setCertificateVerifier(new CommonCertificateVerifier());
 		Reports reports = validator.validateDocument();
 
+		// reports.print();
+
 		DiagnosticData diagnosticData = reports.getDiagnosticData();
 
 		SignatureWrapper signature = diagnosticData.getSignatureById(diagnosticData.getFirstSignatureId());

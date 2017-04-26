@@ -3,11 +3,11 @@
   <parent>
     <groupId>eu.europa.ec.joinup.sd-dss</groupId>
     <artifactId>sd-dss</artifactId>
-    <version>4.7.0.V3</version>
+    <version>5.0</version>
   </parent>
   <artifactId>dss-validation-soap</artifactId>
 	<name>DSS Validation SOAP Service</name>
-  
+
   <dependencies>
   	<dependency>
 			<groupId>eu.europa.ec.joinup.sd-dss</groupId>

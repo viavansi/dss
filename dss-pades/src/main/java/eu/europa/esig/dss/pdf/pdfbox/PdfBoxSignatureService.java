@@ -79,23 +79,23 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
 	@Override
 	public byte[] digest(final InputStream toSignDocument, final PAdESSignatureParameters parameters, final DigestAlgorithm digestAlgorithm)
-			throws DSSException {
+            throws DSSException {
 
-		final byte[] signatureValue = DSSUtils.EMPTY_BYTE_ARRAY;
-		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		PDDocument pdDocument = null;
-		try {
-			pdDocument = PDDocument.load(toSignDocument);
-			PDSignature pdSignature = createSignatureDictionary(parameters);
+        final byte[] signatureValue = DSSUtils.EMPTY_BYTE_ARRAY;
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PDDocument pdDocument = null;
+        try {
+            pdDocument = PDDocument.load(toSignDocument);
+            PDSignature pdSignature = createSignatureDictionary(parameters);
 
-			return signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
-		} catch (IOException e) {
-			throw new DSSException(e);
-		} finally {
-			Utils.closeQuietly(pdDocument);
-			Utils.closeQuietly(outputStream);
-		}
-	}
+            return signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
+        } catch (IOException e) {
+            throw new DSSException(e);
+        } finally {
+            Utils.closeQuietly(pdDocument);
+            Utils.closeQuietly(outputStream);
+        }
+    }
 
 	@Override
 	public void sign(final InputStream pdfData, final byte[] signatureValue, final OutputStream signedStream, final PAdESSignatureParameters parameters,
@@ -210,7 +210,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
 			try {
                 List<PDSignature>  pdSignatures = doc.getSignatureDictionaries();
-                if (parameters.getCertifiedLevel() != null && CollectionUtils.isEmpty(pdSignatures)) {
+                if (parameters.getCertifiedLevel() != null && (pdSignatures == null || pdSignatures.isEmpty())) {
                     addCertificationLevel(parameters, doc, signature);
                 }
             } catch (IOException e) {
@@ -256,6 +256,47 @@ class PdfBoxSignatureService implements PDFSignatureService {
         COSArray references = new COSArray();
         references.add(reference); // Add SigRef Dictionary to a Array
         dictionary.setItem("Reference", references); // Add Array to Signature dictionary
+    }
+    
+    private PDSignature createSignatureDictionary(final PAdESSignatureParameters parameters) {
+
+        final PDSignature signature = new PDSignature();
+        signature.setType(getType());
+        // signature.setName(String.format("SD-DSS Signature %s", parameters.getDeterministicId()));
+        Date date = parameters.bLevel().getSigningDate();
+        String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
+        CertificateToken token = parameters.getSigningCertificate();
+        if (token == null) {
+            signature.setName("Unknown signer" + encodedDate);
+        } else {
+            String shortName = DSSASN1Utils.getHumanReadableName(parameters.getSigningCertificate()) + encodedDate;
+            signature.setName(shortName);
+        }
+
+        signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE); // default filter
+        // sub-filter for basic and PAdES Part 2 signatures
+        signature.setSubFilter(getSubFilter());
+
+        if (COSName.SIG.equals(getType())) {
+            if (Utils.isStringNotEmpty(parameters.getContactInfo())) {
+                signature.setContactInfo(parameters.getContactInfo());
+            }
+
+            if (Utils.isStringNotEmpty(parameters.getLocation())) {
+                signature.setLocation(parameters.getLocation());
+            }
+
+            if (Utils.isStringNotEmpty(parameters.getReason())) {
+                signature.setReason(parameters.getReason());
+            }
+        }
+
+        // the signing date, needed for valid signature
+        final Calendar cal = Calendar.getInstance();
+        final Date signingDate = parameters.bLevel().getSigningDate();
+        cal.setTime(signingDate);
+        signature.setSignDate(cal);
+        return signature;
     }
 
 	protected COSName getType() {

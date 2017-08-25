@@ -81,6 +81,9 @@ public class OCSPCertificateVerifier implements CertificateStatusVerifier {
 				logger.debug("No matching OCSP response found for " + toCheckToken.getDSSIdAsString());
 			} else {
 				ocspToken.extractInfo();
+				if (ocspToken.getStatus() == null) {
+                    return null;
+                }
 				final boolean found = extractSigningCertificateFromResponse(ocspToken);
 				if (!found) {
 					extractSigningCertificateFormResponderId(ocspToken);

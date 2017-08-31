@@ -41,6 +41,8 @@ import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuild;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuildDataDict;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
@@ -220,7 +222,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
             String shortName = DSSASN1Utils.getHumanReadableName(parameters.getSigningCertificate()) + encodedDate;
             signature.setName(shortName);
         }
-
+        
         signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE); // default filter
         // sub-filter for basic and PAdES Part 2 signatures
         signature.setSubFilter(getSubFilter());
@@ -237,6 +239,22 @@ class PdfBoxSignatureService implements PDFSignatureService {
             if (Utils.isStringNotEmpty(parameters.getReason())) {
                 signature.setReason(parameters.getReason());
             }
+            
+            PDPropBuild pb = new PDPropBuild();
+            PDPropBuildDataDict pd = new PDPropBuildDataDict();
+            
+            if (Utils.isStringNotEmpty(parameters.getSoftwareName())) {
+                pd.setName(parameters.getSoftwareName());
+                pb.setPDPropBuildApp(pd);
+                signature.setPropBuild(pb);
+            }
+            
+            if (Utils.isStringNotEmpty(parameters.getSoftwareVersion())) {
+                pd.setVersion(parameters.getSoftwareVersion());
+                pb.setPDPropBuildApp(pd);
+                signature.setPropBuild(pb);
+            }
+            
         }
         
         try {

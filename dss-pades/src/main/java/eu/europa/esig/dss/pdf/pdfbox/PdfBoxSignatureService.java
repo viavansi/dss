@@ -40,7 +40,20 @@ import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.common.COSArrayList;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuild;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuildDataDict;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
@@ -87,7 +100,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PDDocument pdDocument = null;
         try {
-            pdDocument = PDDocument.load(toSignDocument);
+            pdDocument = PDDocument.load(toSignDocument, parameters.getPassword());
             PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
 
             return signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
@@ -105,7 +118,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
 		PDDocument pdDocument = null;
 		try {
-			pdDocument = PDDocument.load(pdfData);
+            pdDocument = PDDocument.load(pdfData, parameters.getPassword());
 			final PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
 			signDocumentAndReturnDigest(parameters, signatureValue, signedStream, pdDocument, pdSignature, digestAlgorithm);
 		} catch (IOException e) {
@@ -142,7 +155,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
 				fillImageParameters(pdDocument, parameters.getImageParameters(), options);
 			}
 			pdDocument.addSignature(pdSignature, signatureInterface, options);
-
+            if (parameters.getImageParameters() != null && parameters.getImageParameters().isInAllPages()) {
+                stampSignedDocument(pdDocument, parameters, options);
+            }
 			saveDocumentIncrementally(parameters, fileOutputStream, pdDocument);
 			final byte[] digestValue = digest.digest();
 			if (logger.isDebugEnabled()) {
@@ -155,6 +170,68 @@ class PdfBoxSignatureService implements PDFSignatureService {
 			Utils.closeQuietly(options.getVisualSignature());
 		}
 	}
+
+    public void stampSignedDocument(PDDocument document, final PAdESSignatureParameters params, SignatureOptions options) throws IOException {
+
+        for (int i = 0; i < document.getNumberOfPages(); i++) {
+
+            if (options.getPage() != i) {
+
+                PDPage page = document.getPage(i);
+                List<PDAnnotation> annotations = page.getAnnotations();
+
+                ImageAndResolution ires = ImageUtils.create(params.getImageParameters());
+                InputStream is = ires.getInputStream();
+                PDImageXObject ximage = JPEGFactory.createFromStream(document, is);
+                IOUtils.closeQuietly(is);
+
+                float imgWidth = (float) ((ximage.getWidth() / 3) * 0.72);
+                float imgHeight = (float) ((ximage.getHeight() / 3) * 0.72);
+                float lowerLeftX = params.getImageParameters().getxAxis();
+                float lowerLeftY = page.getMediaBox().getHeight() - params.getImageParameters().getyAxis() - imgHeight;
+
+                // stamp
+                PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
+                stamp.setName(params.getReason());
+                stamp.setContents(null);
+                stamp.setLocked(true);
+                stamp.setReadOnly(true);
+                stamp.setPrinted(true);
+                stamp.setNoRotate(true);
+
+                PDRectangle rectangle = new PDRectangle(lowerLeftX, lowerLeftY, imgWidth, imgHeight);
+                PDFormXObject form = new PDFormXObject(document);
+                form.setResources(new PDResources());
+                form.setBBox(rectangle);
+                form.setFormType(1);
+
+                form.getResources().getCOSObject().setNeedToBeUpdated(true);
+                form.getResources().add(ximage);
+                PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
+                PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
+                appearance.setNormalAppearance(appearanceStream);
+                stamp.setAppearance(appearance);
+                stamp.setRectangle(rectangle);
+                PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
+                stream.drawImage(ximage, lowerLeftX, lowerLeftY, imgWidth, imgHeight);
+                stream.close();
+                // close and save
+                annotations.add(stamp);
+
+                appearanceStream.getCOSObject().setNeedToBeUpdated(true);
+                appearance.getCOSObject().setNeedToBeUpdated(true);
+                rectangle.getCOSArray().setNeedToBeUpdated(true);
+                stamp.getCOSObject().setNeedToBeUpdated(true);
+                form.getCOSObject().setNeedToBeUpdated(true);
+                COSArrayList<PDAnnotation> list = (COSArrayList<PDAnnotation>) annotations;
+                COSArrayList.converterToCOSArray(list).setNeedToBeUpdated(true);
+                document.getPages().getCOSObject().setNeedToBeUpdated(true);
+                page.getCOSObject().setNeedToBeUpdated(true);
+                document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
+            }
+        }
+
+    }
 
 	private void fillImageParameters(final PDDocument doc, final SignatureImageParameters imgParams, SignatureOptions options) throws IOException {
 
@@ -181,14 +258,14 @@ class PdfBoxSignatureService implements PDFSignatureService {
     private void addCertificationLevel(final PAdESSignatureParameters parameters, PDDocument doc, final PDSignature signature) {
 
         // DocMDP thing
-        COSDictionary dictionary = (COSDictionary) signature.getCOSObject();
+        COSDictionary dictionary = signature.getCOSObject();
 
         //Create Permissions Dictionary
         COSDictionary permissions = new COSDictionary();
         permissions.setItem("DocMDP", signature);
 
         //Add Permissions to Catalog
-        COSDictionary catalog = (COSDictionary) doc.getDocumentCatalog().getCOSObject();
+        COSDictionary catalog = doc.getDocumentCatalog().getCOSObject();
         catalog.setItem("Perms", permissions);
         // Create a reference dictionary
         COSDictionary reference = new COSDictionary();
@@ -303,8 +380,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
 	public void validateSignatures(CertificatePool validationCertPool, DSSDocument document, SignatureValidationCallback callback) throws DSSException {
 		// recursive search of signature
 		InputStream inputStream = document.openStream();
+        String password = document.getPassword();
 		try {
-			List<PdfSignatureOrDocTimestampInfo> signaturesFound = getSignatures(validationCertPool, Utils.toByteArray(inputStream));
+            List<PdfSignatureOrDocTimestampInfo> signaturesFound = getSignatures(validationCertPool, Utils.toByteArray(inputStream), password);
 			for (PdfSignatureOrDocTimestampInfo pdfSignatureOrDocTimestampInfo : signaturesFound) {
 				callback.validate(pdfSignatureOrDocTimestampInfo);
 			}
@@ -315,11 +393,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
 		Utils.closeQuietly(inputStream);
 	}
 
-	private List<PdfSignatureOrDocTimestampInfo> getSignatures(CertificatePool validationCertPool, byte[] originalBytes) {
-		List<PdfSignatureOrDocTimestampInfo> signatures = new ArrayList<PdfSignatureOrDocTimestampInfo>();
+    private List<PdfSignatureOrDocTimestampInfo> getSignatures(CertificatePool validationCertPool, byte[] originalBytes, String password) {
+		List<PdfSignatureOrDocTimestampInfo> signatures = new ArrayList<>();
 		PDDocument doc = null;
 		try {
-			doc = PDDocument.load(originalBytes);
+            doc = PDDocument.load(originalBytes, password);
 
 			List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
 			if (Utils.isCollectionNotEmpty(pdSignatures)) {
@@ -347,7 +425,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 						// LT or LTA
 						if (dssDictionary != null) {
 							// check is DSS dictionary already exist
-							if (isDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent))) {
+                            if (isDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent), password)) {
 								isArchiveTimestamp = true;
 							}
 						}
@@ -384,7 +462,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 	 * is over the DSS dictionary
 	 */
 	private void linkSignatures(List<PdfSignatureOrDocTimestampInfo> signatures) {
-		List<PdfSignatureOrDocTimestampInfo> previousList = new ArrayList<PdfSignatureOrDocTimestampInfo>();
+		List<PdfSignatureOrDocTimestampInfo> previousList = new ArrayList<>();
 		for (PdfSignatureOrDocTimestampInfo sig : signatures) {
 			if (Utils.isCollectionNotEmpty(previousList)) {
 				for (PdfSignatureOrDocTimestampInfo previous : previousList) {
@@ -395,11 +473,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
 		}
 	}
 
-	private boolean isDSSDictionaryPresentInPreviousRevision(byte[] originalBytes) {
+	private boolean isDSSDictionaryPresentInPreviousRevision(byte[] originalBytes, String password) {
 		PDDocument doc = null;
 		PdfDssDict dssDictionary = null;
 		try {
-			doc = PDDocument.load(originalBytes);
+			doc = PDDocument.load(originalBytes, password);
 			List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
 			if (Utils.isCollectionNotEmpty(pdSignatures)) {
 				PdfDict catalog = new PdfBoxDict(doc.getDocumentCatalog().getCOSObject(), doc);
@@ -422,10 +500,10 @@ class PdfBoxSignatureService implements PDFSignatureService {
 	}
 
 	@Override
-	public void addDssDictionary(InputStream inputStream, OutputStream outputStream, List<DSSDictionaryCallback> callbacks) {
+    public void addDssDictionary(InputStream inputStream, OutputStream outputStream, List<DSSDictionaryCallback> callbacks, final PAdESSignatureParameters parameters) {
 		PDDocument pdDocument = null;
 		try {
-			pdDocument = PDDocument.load(inputStream);
+            pdDocument = PDDocument.load(inputStream, parameters.getPassword());
 			if (Utils.isCollectionNotEmpty(callbacks)) {
 				final COSDictionary cosDictionary = pdDocument.getDocumentCatalog().getCOSObject();
 				cosDictionary.setItem("DSS", buildDSSDictionary(callbacks));
@@ -447,11 +525,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
 	private COSDictionary buildDSSDictionary(List<DSSDictionaryCallback> callbacks) throws Exception {
 		COSDictionary dss = new COSDictionary();
 
-		Map<String, COSStream> streams = new HashMap<String, COSStream>();
+		Map<String, COSStream> streams = new HashMap<>();
 
-		Set<CRLToken> allCrls = new HashSet<CRLToken>();
-		Set<OCSPToken> allOcsps = new HashSet<OCSPToken>();
-		Set<CertificateToken> allCertificates = new HashSet<CertificateToken>();
+		Set<CRLToken> allCrls = new HashSet<>();
+		Set<OCSPToken> allOcsps = new HashSet<>();
+		Set<CertificateToken> allCertificates = new HashSet<>();
 
 		COSDictionary vriDictionary = new COSDictionary();
 		for (DSSDictionaryCallback callback : callbacks) {

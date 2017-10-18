@@ -150,7 +150,7 @@ public class PAdESService extends AbstractSignatureService<PAdESSignatureParamet
 		inputStream = toSignDocument.openStream();
 		pdfSignatureService.sign(inputStream, encodedData, byteArrayOutputStream, parameters, parameters.getDigestAlgorithm());
 		Utils.closeQuietly(inputStream);
-		DSSDocument signature = new InMemoryDocument(byteArrayOutputStream.toByteArray());
+        DSSDocument signature = new InMemoryDocument(parameters.getPassword(), byteArrayOutputStream.toByteArray());
 		signature.setMimeType(MimeType.PDF);
 
 		final SignatureExtension<PAdESSignatureParameters> extension = getExtensionProfile(signatureLevel);

@@ -77,6 +77,6 @@ public interface PDFSignatureService {
 	void validateSignatures(final CertificatePool validationCertPool, final DSSDocument document, final SignatureValidationCallback callback)
 			throws DSSException;
 
-	void addDssDictionary(InputStream inputStream, OutputStream outpuStream, List<DSSDictionaryCallback> callbacks) throws DSSException;
+    void addDssDictionary(InputStream inputStream, OutputStream outpuStream, List<DSSDictionaryCallback> callbacks, final PAdESSignatureParameters parameters) throws DSSException;
 
 }

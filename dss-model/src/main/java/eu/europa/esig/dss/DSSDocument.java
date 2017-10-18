@@ -104,4 +104,12 @@ public interface DSSDocument extends Serializable {
 	 */
 	String getDigest(final DigestAlgorithm digestAlgorithm);
 
+    /**
+     * Returns the password of the document.
+     *
+     * @return {@code String} representing the name of the current
+     *         {@code DSSDocument}
+     */
+    String getPassword();
+
 }

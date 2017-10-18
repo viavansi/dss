@@ -87,7 +87,7 @@ class PAdESLevelBaselineLT implements SignatureExtension<PAdESSignatureParameter
 		signatures = pdfDocumentValidator.getSignatures();
 
 		// create DSS dictionary
-		List<DSSDictionaryCallback> callbacks = new ArrayList<DSSDictionaryCallback>();
+		List<DSSDictionaryCallback> callbacks = new ArrayList<>();
 		for (final AdvancedSignature signature : signatures) {
 			if (signature instanceof PAdESSignature) {
 				callbacks.add(validate((PAdESSignature) signature));
@@ -97,9 +97,9 @@ class PAdESLevelBaselineLT implements SignatureExtension<PAdESSignatureParameter
 		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
 		final PDFSignatureService signatureService = PdfObjFactory.getInstance().newPAdESSignatureService();
-		signatureService.addDssDictionary(document.openStream(), baos, callbacks);
+        signatureService.addDssDictionary(document.openStream(), baos, callbacks, parameters);
 
-		final InMemoryDocument inMemoryDocument = new InMemoryDocument(baos.toByteArray());
+        final InMemoryDocument inMemoryDocument = new InMemoryDocument(parameters.getPassword(), baos.toByteArray());
 		inMemoryDocument.setMimeType(MimeType.PDF);
 		return inMemoryDocument;
 	}
@@ -114,7 +114,7 @@ class PAdESLevelBaselineLT implements SignatureExtension<PAdESSignatureParameter
 		validationCallback.setCrls(revocationsForInclusionInProfileLT.crlTokens);
 		validationCallback.setOcsps(revocationsForInclusionInProfileLT.ocspTokens);
 
-		Set<CertificateToken> certs = new HashSet<CertificateToken>(signature.getCertificates());
+		Set<CertificateToken> certs = new HashSet<>(signature.getCertificates());
 		validationCallback.setCertificates(certs);
 
 		return validationCallback;

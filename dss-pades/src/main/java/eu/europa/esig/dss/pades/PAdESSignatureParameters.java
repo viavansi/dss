@@ -13,6 +13,7 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 	private CertifiedLevel certifiedLevel;
 	private String softwareName;
 	private String softwareVersion;
+    private String password;
 
 	private int signatureSize = 9472; // default value in pdfbox
 
@@ -108,6 +109,14 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 
     public void setSoftwareVersion(String softwareVersion) {
         this.softwareVersion = softwareVersion;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
 }

@@ -38,6 +38,8 @@ public abstract class CommonDocument implements DSSDocument {
 
 	protected String absolutePath;
 
+    protected String password;
+
 	@Override
 	public void writeTo(OutputStream stream) throws IOException {
 		byte[] buffer = new byte[1024];
@@ -87,4 +89,13 @@ public abstract class CommonDocument implements DSSDocument {
 		final String string = stringWriter.toString();
 		return string;
 	}
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 }

@@ -64,6 +64,18 @@ public class InMemoryDocument extends CommonDocument {
 		this.mimeType = MimeType.fromFileName(name);
 	}
 
+    public InMemoryDocument(final String password, final byte[] bytes, final String name) {
+        this.bytes = bytes;
+        this.password = password;
+        this.name = name;
+        this.mimeType = MimeType.fromFileName(name);
+    }
+
+    public InMemoryDocument(final String password, final byte[] bytes) {
+        this.bytes = bytes;
+        this.password = password;
+    }
+
 	/**
 	 * Creates dss document that retains the data in memory
 	 *

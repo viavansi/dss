@@ -58,6 +58,11 @@ public class SignatureImageParameters {
 	 */
 	private int zoom = NO_SCALING;
 
+    /**
+     * Show annotations in all pages with signature image
+     */
+    private boolean inAllPages;
+
 	/**
 	 * This variable is use to defines the text to generate on the image
 	 */
@@ -110,5 +115,13 @@ public class SignatureImageParameters {
 	public void setTextParameters(SignatureImageTextParameters textParameters) {
 		this.textParameters = textParameters;
 	}
+
+    public boolean isInAllPages() {
+        return inAllPages;
+    }
+
+    public void setInAllPages(boolean inAllPages) {
+        this.inAllPages = inAllPages;
+    }
 
 }

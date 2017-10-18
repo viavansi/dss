@@ -51,7 +51,7 @@ class PAdESLevelBaselineT implements SignatureExtension<PAdESSignatureParameters
 		final ByteArrayOutputStream tDoc = new ByteArrayOutputStream();
 		final PDFTimestampService timestampService = factory.newTimestampSignatureService();
 		timestampService.timestamp(document, tDoc, params, tspSource);
-		final InMemoryDocument inMemoryDocument = new InMemoryDocument(tDoc.toByteArray());
+        final InMemoryDocument inMemoryDocument = new InMemoryDocument(params.getPassword(), tDoc.toByteArray());
 		inMemoryDocument.setMimeType(MimeType.PDF);
 		return inMemoryDocument;
 	}

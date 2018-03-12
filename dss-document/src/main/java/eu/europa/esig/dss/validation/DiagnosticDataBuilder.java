@@ -850,15 +850,13 @@ public class DiagnosticDataBuilder {
 
 		final Set<RevocationToken> revocationTokens = certToken.getRevocationTokens();
 		if(revocationTokens!=null){
-			synchronized(revocationTokens){
-				if (Utils.isCollectionNotEmpty(revocationTokens)) {
-					for (RevocationToken revocationToken : revocationTokens) {
-						// In case of CRL, the X509CRL can be the same for different certificates
-						String xmlId = Utils.toHex(certToken.getDigest(DigestAlgorithm.SHA256)) + Utils.toHex(revocationToken.getDigest(DigestAlgorithm.SHA256));
-						xmlCert.getRevocations().add(getXmlRevocation(revocationToken, xmlId, usedDigestAlgorithms));
-					}
-				}
-			}
+		    // Prevent concurrency error
+		    RevocationToken[] revocationTokenArray=revocationTokens.toArray(new RevocationToken[revocationTokens.size()]);
+			for (RevocationToken revocationToken : revocationTokenArray) {
+			    // In case of CRL, the X509CRL can be the same for different certificates
+			    String xmlId = Utils.toHex(certToken.getDigest(DigestAlgorithm.SHA256)) + Utils.toHex(revocationToken.getDigest(DigestAlgorithm.SHA256));
+			    xmlCert.getRevocations().add(getXmlRevocation(revocationToken, xmlId, usedDigestAlgorithms));
+			}				
 		}
 
 		xmlCert.setTrustedServiceProviders(getXmlTrustedServiceProviders(certToken));

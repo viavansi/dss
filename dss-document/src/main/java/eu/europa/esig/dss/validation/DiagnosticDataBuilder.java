@@ -363,9 +363,10 @@ public class DiagnosticDataBuilder {
 		return result;
 	}
 
-	private List<XmlMessage> getXmlInfo(List<String> infos) {
+	private List<XmlMessage> getXmlInfo(List<String> infoList) {
+		String[] infos=infoList.toArray(new String[infoList.size()]);
 		List<XmlMessage> messages = new ArrayList<XmlMessage>();
-		if (Utils.isCollectionNotEmpty(infos)) {
+		if (infos!=null) {
 			int i = 0;
 			for (String message : infos) {
 				final XmlMessage xmlMessage = new XmlMessage();
@@ -854,8 +855,10 @@ public class DiagnosticDataBuilder {
 		    RevocationToken[] revocationTokenArray=revocationTokens.toArray(new RevocationToken[revocationTokens.size()]);
 			for (RevocationToken revocationToken : revocationTokenArray) {
 			    // In case of CRL, the X509CRL can be the same for different certificates
-			    String xmlId = Utils.toHex(certToken.getDigest(DigestAlgorithm.SHA256)) + Utils.toHex(revocationToken.getDigest(DigestAlgorithm.SHA256));
-			    xmlCert.getRevocations().add(getXmlRevocation(revocationToken, xmlId, usedDigestAlgorithms));
+				if(revocationToken!=null && certToken!=null){
+					String xmlId = Utils.toHex(certToken.getDigest(DigestAlgorithm.SHA256)) + Utils.toHex(revocationToken.getDigest(DigestAlgorithm.SHA256));
+					xmlCert.getRevocations().add(getXmlRevocation(revocationToken, xmlId, usedDigestAlgorithms));
+				}
 			}				
 		}
 

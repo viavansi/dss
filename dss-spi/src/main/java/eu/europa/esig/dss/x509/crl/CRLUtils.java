@@ -131,33 +131,38 @@ public class CRLUtils {
 
 	private static void checkCriticalExtensions(final X509CRL x509CRL, final CRLValidity crlValidity) {
 		final Set<String> criticalExtensionOIDs = x509CRL.getCriticalExtensionOIDs();
-		if ((criticalExtensionOIDs == null) || (criticalExtensionOIDs.size() == 0)) {
+        if ((criticalExtensionOIDs == null) || (criticalExtensionOIDs.size() == 0)) {
 			crlValidity.setUnknownCriticalExtension(false);
 		} else {
 
 			byte[] extensionValue = x509CRL.getExtensionValue(Extension.issuingDistributionPoint.getId());
-			IssuingDistributionPoint issuingDistributionPoint = IssuingDistributionPoint.getInstance(ASN1OctetString.getInstance(extensionValue).getOctets());
-			final boolean onlyAttributeCerts = issuingDistributionPoint.onlyContainsAttributeCerts();
-			final boolean onlyCaCerts = issuingDistributionPoint.onlyContainsCACerts();
-			final boolean onlyUserCerts = issuingDistributionPoint.onlyContainsUserCerts();
-			final boolean indirectCrl = issuingDistributionPoint.isIndirectCRL();
-			ReasonFlags onlySomeReasons = issuingDistributionPoint.getOnlySomeReasons();
-			DistributionPointName distributionPoint = issuingDistributionPoint.getDistributionPoint();
-			boolean urlFound = false;
-			if (DistributionPointName.FULL_NAME == distributionPoint.getType()) {
-				final GeneralNames generalNames = (GeneralNames) distributionPoint.getName();
-				if ((generalNames != null) && (generalNames.getNames() != null) && (generalNames.getNames().length > 0)) {
-					for (GeneralName generalName : generalNames.getNames()) {
-						if (GeneralName.uniformResourceIdentifier == generalName.getTagNo()) {
-							urlFound = true;
-						}
-					}
-				}
-			}
+            if (extensionValue != null) {
+                IssuingDistributionPoint issuingDistributionPoint = IssuingDistributionPoint.getInstance(ASN1OctetString.getInstance(extensionValue).getOctets());
+                final boolean onlyAttributeCerts = issuingDistributionPoint.onlyContainsAttributeCerts();
+                final boolean onlyCaCerts = issuingDistributionPoint.onlyContainsCACerts();
+                final boolean onlyUserCerts = issuingDistributionPoint.onlyContainsUserCerts();
+                final boolean indirectCrl = issuingDistributionPoint.isIndirectCRL();
+                ReasonFlags onlySomeReasons = issuingDistributionPoint.getOnlySomeReasons();
+                DistributionPointName distributionPoint = issuingDistributionPoint.getDistributionPoint();
+                boolean urlFound = false;
+                if (DistributionPointName.FULL_NAME == distributionPoint.getType()) {
+                    final GeneralNames generalNames = (GeneralNames) distributionPoint.getName();
+                    if ((generalNames != null) && (generalNames.getNames() != null) && (generalNames.getNames().length > 0)) {
+                        for (GeneralName generalName : generalNames.getNames()) {
+                            if (GeneralName.uniformResourceIdentifier == generalName.getTagNo()) {
+                                urlFound = true;
+                            }
+                        }
+                    }
+                }
 
-			if (!(onlyAttributeCerts && onlyCaCerts && onlyUserCerts && indirectCrl) && (onlySomeReasons == null) && urlFound) {
-				crlValidity.setUnknownCriticalExtension(false);
-			}
+                if (!(onlyAttributeCerts && onlyCaCerts && onlyUserCerts && indirectCrl) && (onlySomeReasons == null) && urlFound) {
+                    crlValidity.setUnknownCriticalExtension(false);
+                }
+            } else {
+                crlValidity.setUnknownCriticalExtension(false);
+            }
+
 		}
 	}
 

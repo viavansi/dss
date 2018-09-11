@@ -57,9 +57,9 @@ public class SignatureValidationContext implements ValidationContext {
 
 	private static final Logger logger = LoggerFactory.getLogger(SignatureValidationContext.class);
 
-	private final Set<CertificateToken> processedCertificates = new HashSet<CertificateToken>();
-	private final Set<RevocationToken> processedRevocations = new HashSet<RevocationToken>();
-	private final Set<TimestampToken> processedTimestamps = new HashSet<TimestampToken>();
+	private final Set<CertificateToken> processedCertificates = new HashSet<>();
+	private final Set<RevocationToken> processedRevocations = new HashSet<>();
+	private final Set<TimestampToken> processedTimestamps = new HashSet<>();
 
 	/**
 	 * The data loader used to access AIA certificate source.
@@ -72,7 +72,7 @@ public class SignatureValidationContext implements ValidationContext {
 	 */
 	protected CertificatePool validationCertificatePool;
 
-	private final Map<Token, Boolean> tokensToProcess = new HashMap<Token, Boolean>();
+	private final Map<Token, Boolean> tokensToProcess = new HashMap<>();
 
 	// External OCSP source.
 	private OCSPSource ocspSource;
@@ -407,7 +407,7 @@ public class SignatureValidationContext implements ValidationContext {
 			return Collections.emptyList();
 		}
 
-		List<RevocationToken> revocations = new ArrayList<RevocationToken>();
+		List<RevocationToken> revocations = new ArrayList<>();
 
 		// ALL Embedded revocation data
 		OCSPAndCRLCertificateVerifier offlineVerifier = new OCSPAndCRLCertificateVerifier(signatureCRLSource, signatureOCSPSource, validationCertificatePool);
@@ -421,13 +421,15 @@ public class SignatureValidationContext implements ValidationContext {
 			revocations.add(crlToken);
 		}
 
-		// Online resources (OCSP and CRL if OCSP doesn't reply)
-		final OCSPAndCRLCertificateVerifier onlineVerifier = new OCSPAndCRLCertificateVerifier(crlSource, ocspSource, validationCertificatePool);
-		final RevocationToken onlineRevocationToken = onlineVerifier.check(certToken);
-		// CRL can already exist in the signature
-		if (onlineRevocationToken != null && !revocations.contains(onlineRevocationToken)) {
-			revocations.add(onlineRevocationToken);
-		}
+        if (revocations.isEmpty()) {
+            // Online resources (OCSP and CRL if OCSP doesn't reply)
+            final OCSPAndCRLCertificateVerifier onlineVerifier = new OCSPAndCRLCertificateVerifier(crlSource, ocspSource, validationCertificatePool);
+            final RevocationToken onlineRevocationToken = onlineVerifier.check(certToken);
+            // CRL can already exist in the signature
+            if (onlineRevocationToken != null && !revocations.contains(onlineRevocationToken)) {
+                revocations.add(onlineRevocationToken);
+            }
+        }
 
 		return revocations;
 	}

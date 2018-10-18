@@ -30,12 +30,13 @@ public class MutableTimeDependentValues<T extends TimeDependent> extends TimeDep
 		if (!list.isEmpty()) {
 			final Date endDate = x.getEndDate();
 			for (final T y : list) {
-				if (endDate.compareTo(y.getStartDate()) > 0) {
-					throw new IllegalArgumentException("Cannot add overlapping item");
+                if (endDate.compareTo(y.getStartDate()) > 0) {
+                    // throw new IllegalArgumentException("Cannot add
+                    // overlapping item");
 				}
 			}
 		}
-		list.add(x);
+        list.add(x);
 	}
 
 	public List<T> getList() {

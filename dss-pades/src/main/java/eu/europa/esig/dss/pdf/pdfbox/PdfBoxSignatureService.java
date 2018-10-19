@@ -190,7 +190,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 PDPage page = document.getPage(i);
                 List<PDAnnotation> annotations = page.getAnnotations();
 
-                if (document.getSignatureFields() == null || document.getSignatureFields().isEmpty()) {
+                //if (document.getSignatureFields() == null || document.getSignatureFields().isEmpty()) {
                     COSDictionary dict = page.getCOSObject();
                     while (dict.containsKey(COSName.PARENT)) {
                         COSBase parent = dict.getDictionaryObject(COSName.PARENT);
@@ -199,7 +199,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                             dict.setNeedToBeUpdated(true);
                         }
                     }
-                }
+                //}
 
 
                 ImageAndResolution ires = ImageUtils.create(params.getImageParameters());
@@ -220,6 +220,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 stamp.setReadOnly(true);
                 stamp.setPrinted(true);
                 stamp.setNoRotate(true);
+
+                Calendar calendar = Calendar.getInstance();
+                calendar.setTime(params.getBLevelParams().getSigningDate());
+                stamp.setCreationDate(calendar);
+                stamp.setModifiedDate(calendar);
 
                 PDRectangle rectangle = new PDRectangle(lowerLeftX, lowerLeftY, imgWidth, imgHeight);
                 PDFormXObject form = new PDFormXObject(document);

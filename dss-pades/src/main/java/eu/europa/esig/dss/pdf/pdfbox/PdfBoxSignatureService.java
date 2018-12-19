@@ -153,8 +153,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
             };
 
             options.setPreferredSignatureSize(parameters.getSignatureSize());
+            PDVisibleSigProperties visibleSignProperties = null;
             if (parameters.getImageParameters() != null) {
-                fillImageParameters(pdDocument, parameters.getImageParameters(), options);
+                visibleSignProperties = fillImageParameters(pdDocument, parameters.getImageParameters(), options);
             }
             pdDocument.addSignature(pdSignature, signatureInterface, options);
             PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
@@ -165,8 +166,8 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 // becoming invisible
                 acroForm.getCOSObject().removeItem(COSName.NEED_APPEARANCES);
             }
-            if (parameters.getImageParameters() != null && parameters.getImageParameters().isInAllPages()) {
-                stampSignedDocument(pdDocument, parameters, options);
+            if (parameters.getImageParameters() != null && parameters.getImageParameters().isInAllPages() && visibleSignProperties != null) {
+                stampSignedDocument(pdDocument, parameters, options, visibleSignProperties);
             }
             saveDocumentIncrementally(parameters, fileOutputStream, pdDocument);
             final byte[] digestValue = digest.digest();
@@ -181,7 +182,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
     }
 
-    public void stampSignedDocument(PDDocument document, final PAdESSignatureParameters params, SignatureOptions options) throws IOException {
+    public void stampSignedDocument(PDDocument document, final PAdESSignatureParameters params, SignatureOptions options, PDVisibleSigProperties visibleSignProperties) throws IOException {
 
         for (int i = 0; i < document.getNumberOfPages(); i++) {
 
@@ -190,28 +191,20 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 PDPage page = document.getPage(i);
                 List<PDAnnotation> annotations = page.getAnnotations();
 
-                //if (document.getSignatureFields() == null || document.getSignatureFields().isEmpty()) {
-                    COSDictionary dict = page.getCOSObject();
-                    while (dict.containsKey(COSName.PARENT)) {
-                        COSBase parent = dict.getDictionaryObject(COSName.PARENT);
-                        if (parent instanceof COSDictionary) {
-                            dict = (COSDictionary) parent;
-                            dict.setNeedToBeUpdated(true);
-                        }
+                COSDictionary dict = page.getCOSObject();
+                while (dict.containsKey(COSName.PARENT)) {
+                    COSBase parent = dict.getDictionaryObject(COSName.PARENT);
+                    if (parent instanceof COSDictionary) {
+                        dict = (COSDictionary) parent;
+                        dict.setNeedToBeUpdated(true);
                     }
-                //}
-
+                }
 
                 ImageAndResolution ires = ImageUtils.create(params.getImageParameters());
                 InputStream is = ires.getInputStream();
                 PDImageXObject ximage = JPEGFactory.createFromStream(document, is);
                 IOUtils.closeQuietly(is);
-
-                float imgWidth = (float) ((ximage.getWidth() / 3) * 0.72);
-                float imgHeight = (float) ((ximage.getHeight() / 3) * 0.72);
-                float lowerLeftX = params.getImageParameters().getxAxis();
-                float lowerLeftY = page.getMediaBox().getHeight() - params.getImageParameters().getyAxis() - imgHeight;
-
+                
                 // stamp
                 PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
                 stamp.setName(params.getReason());
@@ -226,7 +219,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 stamp.setCreationDate(calendar);
                 stamp.setModifiedDate(calendar);
 
-                PDRectangle rectangle = new PDRectangle(lowerLeftX, lowerLeftY, imgWidth, imgHeight);
+                PDVisibleSignDesigner signDesigner = visibleSignProperties.getPdVisibleSignature();
+                PDRectangle rectangle = new PDRectangle(signDesigner.getxAxis(), signDesigner.getPageHeight() - signDesigner.getyAxis() - signDesigner.getHeight(), signDesigner.getWidth(),
+                        signDesigner.getHeight());
                 PDFormXObject form = new PDFormXObject(document);
                 form.setResources(new PDResources());
                 form.setBBox(rectangle);
@@ -240,7 +235,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 stamp.setAppearance(appearance);
                 stamp.setRectangle(rectangle);
                 PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
-                stream.drawImage(ximage, lowerLeftX, lowerLeftY, imgWidth, imgHeight);
+                stream.drawImage(ximage, signDesigner.getxAxis(), signDesigner.getPageHeight() - signDesigner.getyAxis() - signDesigner.getHeight(), signDesigner.getWidth(), signDesigner.getHeight());
                 stream.close();
                 // close and save
                 annotations.add(stamp);
@@ -260,7 +255,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
     }
 
-    private void fillImageParameters(final PDDocument doc, final SignatureImageParameters imgParams, SignatureOptions options) throws IOException {
+    private PDVisibleSigProperties fillImageParameters(final PDDocument doc, final SignatureImageParameters imgParams, SignatureOptions options) throws IOException {
 
         // DSS-747. Using the DPI resolution to convert java size to dot
         ImageAndResolution ires = ImageUtils.create(imgParams);
@@ -277,6 +272,8 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
             options.setVisualSignature(signatureProperties);
             options.setPage(imgParams.getPage() - 1); // DSS-1138
+
+            return signatureProperties;
         } finally {
             Utils.closeQuietly(is);
         }

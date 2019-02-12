@@ -1,70 +1,24 @@
 /**
  * DSS - Digital Signature Services
  * Copyright (C) 2015 European Commission, provided under the CEF programme
- *
+ * <p>
  * This file is part of the "DSS - Digital Signature Services" project.
- *
+ * <p>
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- *
+ * <p>
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- *
+ * <p>
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 package eu.europa.esig.dss.pdf.pdfbox;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.pdfbox.cos.COSArray;
-import org.apache.pdfbox.cos.COSBase;
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.cos.COSStream;
-import org.apache.pdfbox.io.IOUtils;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.apache.pdfbox.pdmodel.common.COSArrayList;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
-import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuild;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuildDataDict;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
-import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import eu.europa.esig.dss.DSSASN1Utils;
 import eu.europa.esig.dss.DSSDocument;
@@ -89,14 +43,59 @@ import eu.europa.esig.dss.x509.CertificateToken;
 import eu.europa.esig.dss.x509.Token;
 import eu.europa.esig.dss.x509.crl.CRLToken;
 import eu.europa.esig.dss.x509.ocsp.OCSPToken;
+import org.apache.pdfbox.cos.COSArray;
+import org.apache.pdfbox.cos.COSBase;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.cos.COSStream;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.common.COSArrayList;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuild;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuildDataDict;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
+import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.util.Matrix;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.awt.geom.AffineTransform;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 class PdfBoxSignatureService implements PDFSignatureService {
 
     private static final Logger logger = LoggerFactory.getLogger(PdfBoxSignatureService.class);
 
     @Override
-    public byte[] digest(final InputStream toSignDocument, final PAdESSignatureParameters parameters, final DigestAlgorithm digestAlgorithm)
-            throws DSSException {
+    public byte[] digest(final InputStream toSignDocument, final PAdESSignatureParameters parameters, final DigestAlgorithm digestAlgorithm) throws DSSException {
 
         final byte[] signatureValue = DSSUtils.EMPTY_BYTE_ARRAY;
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -130,7 +129,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
     }
 
-    private byte[] signDocumentAndReturnDigest(final PAdESSignatureParameters parameters, final byte[] signatureBytes, final OutputStream fileOutputStream, final PDDocument pdDocument,
+    private byte[] signDocumentAndReturnDigest(final PAdESSignatureParameters pAdESSignatureParameters, final byte[] signatureBytes, final OutputStream fileOutputStream, final PDDocument pdDocument,
             final PDSignature pdSignature, final DigestAlgorithm digestAlgorithm) throws DSSException {
 
         SignatureOptions options = new SignatureOptions();
@@ -152,11 +151,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 }
             };
 
-            options.setPreferredSignatureSize(parameters.getSignatureSize());
-            PDVisibleSigProperties visibleSignProperties = null;
-            if (parameters.getImageParameters() != null) {
-                visibleSignProperties = fillImageParameters(pdDocument, parameters.getImageParameters(), options);
+            options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
+            PDVisibleSigProperties pdVisibleSigProperties = null;
+
+            if (pAdESSignatureParameters.getImageParameters() != null) {
+                pdVisibleSigProperties = fillImageParameters(pdDocument, pAdESSignatureParameters.getImageParameters(), options);
             }
+
             pdDocument.addSignature(pdSignature, signatureInterface, options);
             PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
 
@@ -166,13 +167,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 // becoming invisible
                 acroForm.getCOSObject().removeItem(COSName.NEED_APPEARANCES);
             }
-            if (parameters.getImageParameters() != null && parameters.getImageParameters().isInAllPages() && visibleSignProperties != null) {
-                stampSignedDocument(pdDocument, parameters, options, visibleSignProperties);
+            if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null) {
+                stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
             }
-            saveDocumentIncrementally(parameters, fileOutputStream, pdDocument);
+            saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
             final byte[] digestValue = digest.digest();
             if (logger.isDebugEnabled()) {
-                logger.debug("Digest to be signed: " + Utils.toHex(digestValue));
+                logger.debug("Digest to be signed: {}", Utils.toHex(digestValue));
             }
             return digestValue;
         } catch (IOException e) {
@@ -182,12 +183,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
     }
 
-    public void stampSignedDocument(PDDocument document, final PAdESSignatureParameters params, SignatureOptions options, PDVisibleSigProperties visibleSignProperties) throws IOException {
+    private void stampSignedDocument(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties,
+            SignatureImageParameters imageParameters) throws IOException {
 
         for (int i = 0; i < document.getNumberOfPages(); i++) {
-
-            if (options.getPage() != i) {
-
+            if (signatureOptions.getPage() != i) {
                 PDPage page = document.getPage(i);
                 List<PDAnnotation> annotations = page.getAnnotations();
 
@@ -200,42 +200,71 @@ class PdfBoxSignatureService implements PDFSignatureService {
                     }
                 }
 
-                ImageAndResolution ires = ImageUtils.create(params.getImageParameters());
-                InputStream is = ires.getInputStream();
-                PDImageXObject ximage = JPEGFactory.createFromStream(document, is);
-                IOUtils.closeQuietly(is);
-                
+                ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
+                PDImageXObject pdImageXObject;
+                try (InputStream is = ires.getInputStream()) {
+                    pdImageXObject = JPEGFactory.createFromStream(document, is);
+                }
+
                 // stamp
                 PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
-                stamp.setName(params.getReason());
+                stamp.setName(pAdESSignatureParameters.getReason());
                 stamp.setContents(null);
                 stamp.setLocked(true);
                 stamp.setReadOnly(true);
                 stamp.setPrinted(true);
-                stamp.setNoRotate(true);
+                // Remove stamp.setNoRotate(true) to fix stamper with rotated page
 
                 Calendar calendar = Calendar.getInstance();
-                calendar.setTime(params.getBLevelParams().getSigningDate());
+                calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
                 stamp.setCreationDate(calendar);
                 stamp.setModifiedDate(calendar);
 
-                PDVisibleSignDesigner signDesigner = visibleSignProperties.getPdVisibleSignature();
-                PDRectangle rectangle = new PDRectangle(signDesigner.getxAxis(), signDesigner.getPageHeight() - signDesigner.getyAxis() - signDesigner.getHeight(), signDesigner.getWidth(),
-                        signDesigner.getHeight());
+                PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
+
+                int pageRotation = page.getRotation();
+                float width = signDesigner.getWidth();
+                float height = signDesigner.getHeight();
+                float pageWidth = page.getMediaBox().getWidth();
+                float pageHeight = page.getMediaBox().getHeight();
+
+                float stamperX;
+                float stamperY;
+                if (pageRotation == 90) {
+                    stamperX = imageParameters.getyAxis();
+                    stamperY = -imageParameters.getxAxis();
+                } else {
+                    stamperX = imageParameters.getxAxis();
+                    stamperY = imageParameters.getyAxis();
+                }
+
+                // Uses negative position for inverted axis origin
+                float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
+                float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
+
+                PDRectangle rectangle = new PDRectangle(x, y, width, height);
                 PDFormXObject form = new PDFormXObject(document);
                 form.setResources(new PDResources());
                 form.setBBox(rectangle);
                 form.setFormType(1);
 
                 form.getResources().getCOSObject().setNeedToBeUpdated(true);
-                form.getResources().add(ximage);
+                form.getResources().add(pdImageXObject);
                 PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
                 PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
                 appearance.setNormalAppearance(appearanceStream);
                 stamp.setAppearance(appearance);
                 stamp.setRectangle(rectangle);
                 PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
-                stream.drawImage(ximage, signDesigner.getxAxis(), signDesigner.getPageHeight() - signDesigner.getyAxis() - signDesigner.getHeight(), signDesigner.getWidth(), signDesigner.getHeight());
+
+                AffineTransform affineTransform;
+                if (pageRotation == 90) {
+                    affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
+                } else {
+                    affineTransform = new AffineTransform(width, 0, 0, height, x, y);
+                }
+                stream.drawImage(pdImageXObject, new Matrix(affineTransform));
+
                 stream.close();
                 // close and save
                 annotations.add(stamp);
@@ -255,25 +284,58 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
     }
 
-    private PDVisibleSigProperties fillImageParameters(final PDDocument doc, final SignatureImageParameters imgParams, SignatureOptions options) throws IOException {
+    private PDVisibleSigProperties fillImageParameters(final PDDocument pdDocument, final SignatureImageParameters signatureImageParameters, SignatureOptions signatureOptions) throws IOException {
 
         // DSS-747. Using the DPI resolution to convert java size to dot
-        ImageAndResolution ires = ImageUtils.create(imgParams);
+        ImageAndResolution ires = ImageUtils.create(signatureImageParameters);
 
         InputStream is = ires.getInputStream();
         try {
-            PDVisibleSignDesigner visibleSig = new PDVisibleSignDesigner(doc, is, imgParams.getPage());
-            visibleSig.xAxis(imgParams.getxAxis()).yAxis(imgParams.getyAxis());
-            visibleSig.width(ires.toXPoint(visibleSig.getWidth())).height(ires.toYPoint(visibleSig.getHeight()));
-            visibleSig.zoom(imgParams.getZoom() - 100); // pdfbox is 0 based
+            PDVisibleSignDesigner pdVisibleSignDesigner = new PDVisibleSignDesigner(pdDocument, is, signatureImageParameters.getPage());
 
-            PDVisibleSigProperties signatureProperties = new PDVisibleSigProperties();
-            signatureProperties.visualSignEnabled(true).setPdVisibleSignature(visibleSig).buildSignature();
+            int pageRotation = pdDocument.getPage(signatureOptions.getPage()).getRotation();
+            float stamperX;
+            float stamperY;
+            float width;
+            float height;
+            float pageWidth = pdVisibleSignDesigner.getPageWidth();
+            float pageHeight = pdVisibleSignDesigner.getPageHeight();
 
-            options.setVisualSignature(signatureProperties);
-            options.setPage(imgParams.getPage() - 1); // DSS-1138
+            if (pageRotation == 90) {
+                stamperX = signatureImageParameters.getyAxis();
+                stamperY = -signatureImageParameters.getxAxis();
+                width = ires.toXPoint(pdVisibleSignDesigner.getHeight());
+                height = ires.toXPoint(pdVisibleSignDesigner.getWidth());
+            } else {
+                stamperX = signatureImageParameters.getxAxis();
+                stamperY = signatureImageParameters.getyAxis();
+                width = ires.toXPoint(pdVisibleSignDesigner.getWidth());
+                height = ires.toXPoint(pdVisibleSignDesigner.getHeight());
+            }
 
-            return signatureProperties;
+            // Uses negative position for inverted axis origin
+            float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
+            float y = stamperY < 0 ? pageHeight - height + stamperY : stamperY;
+
+            pdVisibleSignDesigner.xAxis(x).yAxis(y);
+            pdVisibleSignDesigner.width(width).height(height);
+
+            AffineTransform affineTransform;
+            if (pageRotation == 90) {
+                affineTransform = new AffineTransform(0, height / width, -width / height, 0, width, 0);
+            } else {
+                affineTransform = new AffineTransform();
+            }
+            pdVisibleSignDesigner.transform(affineTransform);
+            pdVisibleSignDesigner.zoom(signatureImageParameters.getZoom() - 100f); // pdfbox is 0 based
+
+            PDVisibleSigProperties pdVisibleSigProperties = new PDVisibleSigProperties();
+            pdVisibleSigProperties.visualSignEnabled(true).setPdVisibleSignature(pdVisibleSignDesigner).buildSignature();
+
+            signatureOptions.setVisualSignature(pdVisibleSigProperties);
+            signatureOptions.setPage(signatureImageParameters.getPage() - 1); // DSS-1138
+
+            return pdVisibleSigProperties;
         } finally {
             Utils.closeQuietly(is);
         }
@@ -359,7 +421,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
 
         try {
-            List<PDSignature>  pdSignatures = doc.getSignatureDictionaries();
+            List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
             if (parameters.getCertifiedLevel() != null && (pdSignatures == null || pdSignatures.isEmpty())) {
                 addCertificationLevel(parameters, doc, signature);
             }
@@ -636,5 +698,4 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
         return stream;
     }
-
 }

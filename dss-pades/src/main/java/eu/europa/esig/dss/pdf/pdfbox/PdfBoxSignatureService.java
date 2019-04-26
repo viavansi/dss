@@ -67,7 +67,6 @@ import org.apache.pdfbox.util.Matrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.europa.esig.dss.DSSASN1Utils;
 import eu.europa.esig.dss.DSSDocument;
 import eu.europa.esig.dss.DSSException;
 import eu.europa.esig.dss.DSSUtils;
@@ -376,16 +375,10 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
         final PDSignature signature = new PDSignature();
         signature.setType(getType());
-        // signature.setName(String.format("SD-DSS Signature %s", parameters.getDeterministicId()));
+        
         Date date = parameters.bLevel().getSigningDate();
-        String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
         CertificateToken token = parameters.getSigningCertificate();
-        if (token == null) {
-            signature.setName("Unknown signer" + encodedDate);
-        } else {
-            String shortName = DSSASN1Utils.getHumanReadableName(parameters.getSigningCertificate()) + encodedDate;
-            signature.setName(shortName);
-        }
+        signature.setName(DSSUtils.getDeterministicId(date, token.getDSSId()) + "##" + parameters.getCustomId());
 
         signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE); // default filter
         // sub-filter for basic and PAdES Part 2 signatures

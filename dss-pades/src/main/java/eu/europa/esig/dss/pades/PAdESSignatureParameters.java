@@ -14,6 +14,7 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 	private String softwareName;
 	private String softwareVersion;
     private String password;
+    private String customId;
 
 	private int signatureSize = 9472; // default value in pdfbox
 
@@ -117,6 +118,14 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getCustomId() {
+        return customId;
+    }
+
+    public void setCustomId(String customId) {
+        this.customId = customId;
     }
 
 }

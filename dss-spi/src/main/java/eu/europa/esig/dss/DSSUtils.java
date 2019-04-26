@@ -893,17 +893,17 @@ public final class DSSUtils {
 	 * @param id
 	 * @return
 	 */
-	public static String getDeterministicId(final Date signingTime, TokenIdentifier id) {
+    public static String getDeterministicId(final Date signingTime, TokenIdentifier id) {
 		try {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			if (signingTime != null) {
-				baos.write(Long.toString(signingTime.getTime()).getBytes());
+                baos.write(Long.toString((signingTime.getTime() / 1000) * 1000).getBytes());
 			}
 			if (id != null) {
 				baos.write(id.asXmlId().getBytes());
 			}
-			final String deterministicId = "id-" + getMD5Digest(baos.toByteArray());
-			return deterministicId;
+            final String deterministicId = "id-" + getMD5Digest(baos.toByteArray());
+            return deterministicId;
 		} catch (IOException e) {
 			throw new DSSException(e);
 		}

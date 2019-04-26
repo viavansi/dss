@@ -377,8 +377,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
         signature.setType(getType());
         
         Date date = parameters.bLevel().getSigningDate();
+        String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
         CertificateToken token = parameters.getSigningCertificate();
-        signature.setName(DSSUtils.getDeterministicId(date, token.getDSSId()) + "##" + parameters.getCustomId());
+        if (token == null) {
+            signature.setName("Unknown signer" + encodedDate);
+        } else {
+            signature.setName(DSSUtils.getDeterministicId(date, token.getDSSId()) + "##" + parameters.getCustomId());
+        }
 
         signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE); // default filter
         // sub-filter for basic and PAdES Part 2 signatures

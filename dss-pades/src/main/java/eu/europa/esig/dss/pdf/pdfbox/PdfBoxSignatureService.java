@@ -220,9 +220,17 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
                 PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
 
+                int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
                 int pageRotation = page.getRotation();
+
                 float width = signDesigner.getWidth();
                 float height = signDesigner.getHeight();
+                if (signDesignerRotation == 0 && (pageRotation == 90 || pageRotation == 270)) {
+                    float temp = width;
+                    width = height;
+                    height = temp;
+                }
+
                 float pageWidth = page.getMediaBox().getWidth();
                 float pageHeight = page.getMediaBox().getHeight();
 
@@ -284,7 +292,6 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
             }
         }
-
     }
 
     private PDVisibleSigProperties fillImageParameters(final PDDocument pdDocument, final SignatureImageParameters signatureImageParameters, SignatureOptions signatureOptions) throws IOException {

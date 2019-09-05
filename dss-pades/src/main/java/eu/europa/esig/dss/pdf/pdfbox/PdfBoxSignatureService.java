@@ -20,23 +20,28 @@
  */
 package eu.europa.esig.dss.pdf.pdfbox;
 
-import java.awt.geom.AffineTransform;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import eu.europa.esig.dss.DSSDocument;
+import eu.europa.esig.dss.DSSException;
+import eu.europa.esig.dss.DSSUtils;
+import eu.europa.esig.dss.DigestAlgorithm;
+import eu.europa.esig.dss.pades.PAdESSignatureParameters;
+import eu.europa.esig.dss.pades.SignatureImageParameters;
+import eu.europa.esig.dss.pades.signature.visible.ImageAndResolution;
+import eu.europa.esig.dss.pades.signature.visible.ImageUtils;
+import eu.europa.esig.dss.pdf.DSSDictionaryCallback;
+import eu.europa.esig.dss.pdf.PDFSignatureService;
+import eu.europa.esig.dss.pdf.PdfDict;
+import eu.europa.esig.dss.pdf.PdfDssDict;
+import eu.europa.esig.dss.pdf.PdfSignatureInfo;
+import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfo;
+import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfoComparator;
+import eu.europa.esig.dss.pdf.SignatureValidationCallback;
+import eu.europa.esig.dss.utils.Utils;
+import eu.europa.esig.dss.x509.CertificatePool;
+import eu.europa.esig.dss.x509.CertificateToken;
+import eu.europa.esig.dss.x509.Token;
+import eu.europa.esig.dss.x509.crl.CRLToken;
+import eu.europa.esig.dss.x509.ocsp.OCSPToken;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -67,28 +72,22 @@ import org.apache.pdfbox.util.Matrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.europa.esig.dss.DSSDocument;
-import eu.europa.esig.dss.DSSException;
-import eu.europa.esig.dss.DSSUtils;
-import eu.europa.esig.dss.DigestAlgorithm;
-import eu.europa.esig.dss.pades.PAdESSignatureParameters;
-import eu.europa.esig.dss.pades.SignatureImageParameters;
-import eu.europa.esig.dss.pades.signature.visible.ImageAndResolution;
-import eu.europa.esig.dss.pades.signature.visible.ImageUtils;
-import eu.europa.esig.dss.pdf.DSSDictionaryCallback;
-import eu.europa.esig.dss.pdf.PDFSignatureService;
-import eu.europa.esig.dss.pdf.PdfDict;
-import eu.europa.esig.dss.pdf.PdfDssDict;
-import eu.europa.esig.dss.pdf.PdfSignatureInfo;
-import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfo;
-import eu.europa.esig.dss.pdf.PdfSignatureOrDocTimestampInfoComparator;
-import eu.europa.esig.dss.pdf.SignatureValidationCallback;
-import eu.europa.esig.dss.utils.Utils;
-import eu.europa.esig.dss.x509.CertificatePool;
-import eu.europa.esig.dss.x509.CertificateToken;
-import eu.europa.esig.dss.x509.Token;
-import eu.europa.esig.dss.x509.crl.CRLToken;
-import eu.europa.esig.dss.x509.ocsp.OCSPToken;
+import java.awt.geom.AffineTransform;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 class PdfBoxSignatureService implements PDFSignatureService {
 
@@ -213,7 +212,6 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 stamp.setLocked(true);
                 stamp.setReadOnly(true);
                 stamp.setPrinted(true);
-                // Remove stamp.setNoRotate(true) to fix stamper with rotated page
 
                 Calendar calendar = Calendar.getInstance();
                 calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
@@ -233,6 +231,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 if (pageRotation == 90) {
                     stamperX = imageParameters.getyAxis();
                     stamperY = -imageParameters.getxAxis();
+                } else if (pageRotation == 270) {
+                    stamperX = -imageParameters.getyAxis();
+                    stamperY = imageParameters.getxAxis();
                 } else {
                     stamperX = imageParameters.getxAxis();
                     stamperY = imageParameters.getyAxis();
@@ -260,6 +261,8 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 AffineTransform affineTransform;
                 if (pageRotation == 90) {
                     affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
+                } else if (pageRotation == 270) {
+                    affineTransform = new AffineTransform(0, -height, width, 0, x, y + height);
                 } else {
                     affineTransform = new AffineTransform(width, 0, 0, height, x, y);
                 }
@@ -306,6 +309,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 stamperY = -signatureImageParameters.getxAxis();
                 width = ires.toXPoint(pdVisibleSignDesigner.getHeight());
                 height = ires.toXPoint(pdVisibleSignDesigner.getWidth());
+            } else if (pageRotation == 270) {
+                stamperX = -signatureImageParameters.getyAxis();
+                stamperY = signatureImageParameters.getxAxis();
+                width = ires.toXPoint(pdVisibleSignDesigner.getHeight());
+                height = ires.toXPoint(pdVisibleSignDesigner.getWidth());
             } else {
                 stamperX = signatureImageParameters.getxAxis();
                 stamperY = signatureImageParameters.getyAxis();
@@ -323,9 +331,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
             AffineTransform affineTransform;
             if (pageRotation == 90) {
                 affineTransform = new AffineTransform(0, height / width, -width / height, 0, width, 0);
+            } else if (pageRotation == 270) {
+                affineTransform = new AffineTransform(0, -height / width, width / height, 0, 0, height);
             } else {
                 affineTransform = new AffineTransform();
             }
+
             pdVisibleSignDesigner.transform(affineTransform);
             pdVisibleSignDesigner.zoom(signatureImageParameters.getZoom() - 100f); // pdfbox is 0 based
 
@@ -375,7 +386,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
         final PDSignature signature = new PDSignature();
         signature.setType(getType());
-        
+
         Date date = parameters.bLevel().getSigningDate();
         String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
         CertificateToken token = parameters.getSigningCertificate();
@@ -504,7 +515,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                     byte[] signedContent = signature.getSignedContent(originalBytes);
                     int[] byteRange = signature.getByteRange();
 
-                    PdfSignatureOrDocTimestampInfo signatureInfo = null;
+                    PdfSignatureOrDocTimestampInfo signatureInfo;
                     if (PdfBoxDocTimeStampService.SUB_FILTER_ETSI_RFC3161.getName().equals(subFilter)) {
                         boolean isArchiveTimestamp = false;
 
@@ -521,9 +532,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                         signatureInfo = new PdfBoxSignatureInfo(validationCertPool, signature, dssDictionary, cms, signedContent);
                     }
 
-                    if (signatureInfo != null) {
-                        signatures.add(signatureInfo);
-                    }
+                    signatures.add(signatureInfo);
                 }
                 Collections.sort(signatures, new PdfSignatureOrDocTimestampInfoComparator());
                 linkSignatures(signatures);

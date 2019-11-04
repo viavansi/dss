@@ -186,7 +186,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
             SignatureImageParameters imageParameters) throws IOException {
 
         for (int i = 0; i < document.getNumberOfPages(); i++) {
-            if (signatureOptions.getPage() != i) {
+            //if (signatureOptions.getPage() != i) {
                 PDPage page = document.getPage(i);
                 List<PDAnnotation> annotations = page.getAnnotations();
 
@@ -291,7 +291,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 page.getCOSObject().setNeedToBeUpdated(true);
                 document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
             }
-        }
+        //}
     }
 
     private PDVisibleSigProperties fillImageParameters(final PDDocument pdDocument, final SignatureImageParameters signatureImageParameters, SignatureOptions signatureOptions) throws IOException {

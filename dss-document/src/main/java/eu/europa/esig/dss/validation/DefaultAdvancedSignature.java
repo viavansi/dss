@@ -324,10 +324,10 @@ public abstract class DefaultAdvancedSignature implements AdvancedSignature {
 		signatureCryptographicVerification = getSignatureCryptographicVerification();
 		final CertificateValidity theCertificateValidity = candidatesForSigningCertificate.getTheCertificateValidity();
 		if (theCertificateValidity != null) {
-			if (theCertificateValidity.isValid()) {
+			//if (theCertificateValidity.isValid()) {
 				final CertificateToken signingCertificateToken = theCertificateValidity.getCertificateToken();
 				return signingCertificateToken;
-			}
+			//}
 		}
 		final CertificateValidity theBestCandidate = candidatesForSigningCertificate.getTheBestCandidate();
 		return theBestCandidate == null ? null : theBestCandidate.getCertificateToken();

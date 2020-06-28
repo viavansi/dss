@@ -427,6 +427,9 @@ public class CertificateToken extends Token {
 	 */
 	public boolean checkKeyUsage(final KeyUsageBit keyUsageBit) {
 		Set<KeyUsageBit> keyUsageBits = getKeyUsageBits();
+		if (keyUsageBits.isEmpty() && KeyUsageBit.crlSign.equals(keyUsageBit)) {
+			return true;
+		}
 		return keyUsageBits.contains(keyUsageBit);
 	}
 

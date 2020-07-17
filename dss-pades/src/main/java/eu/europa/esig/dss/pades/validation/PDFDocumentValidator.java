@@ -68,7 +68,9 @@ public class PDFDocumentValidator extends SignedDocumentValidator {
 		byte[] preamble = new byte[headerLength];
 		DSSUtils.readToArray(dssDocument, headerLength, preamble);
 		String preambleString = new String(preamble);
-		if (preambleString.substring(0, 10).contains("%PDF-")) {
+		if (preambleString.startsWith("%PDF-")) {
+			return true;
+		}else if (preambleString.length() > 10 && preambleString.substring(0, 10).contains("%PDF-")) {
 			return true;
 		}
 		return false;

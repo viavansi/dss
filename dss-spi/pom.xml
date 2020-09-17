@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V22</version>
+		<version>5.0.V24</version>
 	</parent>
 
 	<artifactId>dss-spi</artifactId>

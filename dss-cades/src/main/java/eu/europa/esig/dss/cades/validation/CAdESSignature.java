@@ -44,6 +44,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1070,6 +1071,9 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 	public DigestAlgorithm getDigestAlgorithm() {
 
 		final String digestAlgOID = signerInformation.getDigestAlgOID();
+		if ("1.2.840.113549.1.1.5".equals(digestAlgOID)) {
+			return DigestAlgorithm.SHA1;
+		}
 		return DigestAlgorithm.forOID(digestAlgOID);
 	}
 
@@ -1117,7 +1121,14 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 					final PublicKey publicKey = certificateToken.getPublicKey();
 					final SignerInformationVerifier signerInformationVerifier = verifier.build(publicKey);
 					LOG.debug(" - WITH SIGNING CERTIFICATE: " + certificateToken.getAbbreviation());
-					boolean signatureIntact = signerInformationToCheck.verify(signerInformationVerifier);
+					boolean signatureIntact = true;
+					try {
+						signatureIntact = signerInformationToCheck.verify(signerInformationVerifier);
+					} catch (CMSException e) {
+						if (!e.getMessage().contains("java.security.NoSuchAlgorithmException: SHA1WITHRSA")) {
+							throw e;
+						}
+					}
 					signatureCryptographicVerification.setReferenceDataIntact(signatureIntact);
 					signatureCryptographicVerification.setSignatureIntact(signatureIntact);
 

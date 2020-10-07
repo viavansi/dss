@@ -477,14 +477,15 @@ public class TSLParser implements Callable<TSLParserResult> {
 				CompositeCondition condition = new CompositeCondition();
 				for (ObjectIdentifierType oidType : policiesListType.getPolicyIdentifier()) {
 					IdentifierType identifier = oidType.getIdentifier();
-					String id = identifier.getValue();
+					if (identifier != null) {
+						String id = identifier.getValue();
 
-					// ES TSL : <ns4:Identifier Qualifier="OIDAsURN">urn:oid:1.3.6.1.4.1.36035.1.3.1</ns4:Identifier>
-					if (id.indexOf(':') >= 0) {
-						id = id.substring(id.lastIndexOf(':') + 1);
+						// ES TSL : <ns4:Identifier Qualifier="OIDAsURN">urn:oid:1.3.6.1.4.1.36035.1.3.1</ns4:Identifier>
+						if (id.indexOf(':') >= 0) {
+							id = id.substring(id.lastIndexOf(':') + 1);
+						}
+						condition.addChild(new PolicyIdCondition(id));
 					}
-
-					condition.addChild(new PolicyIdCondition(id));
 				}
 				criteriaCondition.addChild(condition);
 			}

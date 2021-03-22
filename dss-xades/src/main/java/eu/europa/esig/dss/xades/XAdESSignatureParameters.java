@@ -41,6 +41,8 @@ public class XAdESSignatureParameters extends AbstractSignatureParameters {
 
 	private boolean embedXML;
 
+	private String toCounterSignSignatureValueId;
+
 	@Override
 	public void setSignatureLevel(SignatureLevel signatureLevel) {
 		if (signatureLevel == null || SignatureForm.XAdES != signatureLevel.getSignatureForm()) {
@@ -157,4 +159,11 @@ public class XAdESSignatureParameters extends AbstractSignatureParameters {
 		this.embedXML = embedXML;
 	}
 
+	public String getToCounterSignSignatureValueId() {
+		return toCounterSignSignatureValueId;
+	}
+
+	public void setToCounterSignSignatureValueId(String toCounterSignSignatureValueId) {
+		this.toCounterSignSignatureValueId = toCounterSignSignatureValueId;
+	}
 }

@@ -1,6 +1,7 @@
 package eu.europa.esig.dss.cades;
 
 import eu.europa.esig.dss.AbstractSignatureParameters;
+import org.bouncycastle.cms.SignerId;
 
 public class CAdESSignatureParameters extends AbstractSignatureParameters {
 
@@ -9,6 +10,8 @@ public class CAdESSignatureParameters extends AbstractSignatureParameters {
 
 	private String contentIdentifierPrefix;
 	private String contentIdentifierSuffix;
+
+	private String toCounterSignatureSerialNumberId;
 
 	public String getContentHintsType() {
 		return contentHintsType;
@@ -55,6 +58,14 @@ public class CAdESSignatureParameters extends AbstractSignatureParameters {
 	 */
 	public void setContentIdentifierSuffix(String contentIdentifierSuffix) {
 		this.contentIdentifierSuffix = contentIdentifierSuffix;
+	}
+
+	public String getToCounterSignatureSerialNumberId() {
+		return toCounterSignatureSerialNumberId;
+	}
+
+	public void setToCounterSignatureSerialNumberId(String toCounterSignatureSerialNumberId) {
+		this.toCounterSignatureSerialNumberId = toCounterSignatureSerialNumberId;
 	}
 
 	/**

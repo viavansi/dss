@@ -106,7 +106,7 @@ public class CMSSignedDataBuilder {
 	 *         CMS attributes
 	 * @throws eu.europa.esig.dss.DSSException
 	 */
-	protected CMSSignedDataGenerator createCMSSignedDataGenerator(final CAdESSignatureParameters parameters, final ContentSigner contentSigner,
+	public CMSSignedDataGenerator createCMSSignedDataGenerator(final CAdESSignatureParameters parameters, final ContentSigner contentSigner,
 			final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder, final CMSSignedData originalSignedData) throws DSSException {
 		try {
 
@@ -159,7 +159,7 @@ public class CMSSignedDataBuilder {
 	 * @return a SignerInfoGeneratorBuilder that generate the signed and unsigned attributes according to the
 	 *         CAdESLevelBaselineB
 	 */
-	SignerInfoGeneratorBuilder getSignerInfoGeneratorBuilder(final CAdESSignatureParameters parameters, final boolean includeUnsignedAttributes) {
+    public SignerInfoGeneratorBuilder getSignerInfoGeneratorBuilder(final CAdESSignatureParameters parameters, final boolean includeUnsignedAttributes) {
 
 		final CAdESLevelBaselineB cadesProfile = new CAdESLevelBaselineB();
 		final AttributeTable signedAttributes = cadesProfile.getSignedAttributes(parameters);

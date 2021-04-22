@@ -213,7 +213,7 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         byte[] canonicalizedSignedInfo = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, signedInfoDom);
         if (LOG.isTraceEnabled()) {
             LOG.trace("Canonicalized SignedInfo         --> {}", new String(canonicalizedSignedInfo));
-            final byte[] digest = DSSUtils.digest(DigestAlgorithm.SHA256, canonicalizedSignedInfo);
+            final byte[] digest = DSSUtils.digest(params.getDigestAlgorithm(), canonicalizedSignedInfo);
             LOG.trace("Canonicalized SignedInfo SHA256  --> {}", Utils.toBase64(digest));
         }
         built = true;
@@ -297,11 +297,11 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
             // do not include trusted cert
             if (trustAnchorBPPolicy && certificatePool != null) {
                 if (!certificatePool.get(x509Certificate.getSubjectX500Principal()).isEmpty()) {
-                    //TODO Jesus continue;
+                    continue;
                 }
             }
             addCertificate(x509DataDom, x509Certificate);
-
+            /*
             PublicKey publickey = x509Certificate.getCertificate().getPublicKey();
             if (publickey instanceof RSAPublicKey) {
                 BigInteger modulus = ((RSAPublicKey) publickey).getModulus();
@@ -315,9 +315,10 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
                 DomUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_MODULUS, base64Modulus);
                 DomUtils.addTextElement(documentDom, rsaKeyValue, XMLNS, DS_EXPONENT, exponent);
             }
-
+            */
         }
 
+        /*
         String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
         final Element reference = DomUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
         reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
@@ -339,6 +340,8 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
             LOG.trace("Canonicalised REF_2      --> {}", new String(canonicalizedBytes));
         }
         incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
+
+         */
     }
 
     /**

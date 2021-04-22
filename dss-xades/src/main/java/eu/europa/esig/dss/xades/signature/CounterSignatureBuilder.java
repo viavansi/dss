@@ -22,14 +22,18 @@ package eu.europa.esig.dss.xades.signature;
 
 import static eu.europa.esig.dss.XAdESNamespaces.XAdES;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import javax.xml.crypto.dsig.CanonicalizationMethod;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import eu.europa.esig.dss.DSSException;
+import eu.europa.esig.dss.DSSUtils;
 import eu.europa.esig.dss.xades.DSSXMLUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.w3c.dom.Document;
@@ -53,6 +57,7 @@ import eu.europa.esig.dss.xades.validation.XAdESSignature;
 public class CounterSignatureBuilder extends EnvelopedSignatureBuilder {
 
 	private XAdESSignature toCounterSignXadesSignature;
+	private static DocumentBuilderFactory dbFactory;
 
 	public CounterSignatureBuilder(final DSSDocument toCounterSignDocument, final XAdESSignature toCounterSignXadesSignature, final XAdESSignatureParameters parameters,
 			final CertificateVerifier certificateVerifier) {
@@ -64,8 +69,8 @@ public class CounterSignatureBuilder extends EnvelopedSignatureBuilder {
 	@Override
 	protected DSSReference createReference(DSSDocument document, int referenceIndex) {
 
-		DSSReference dssReference = new DSSReference();
-		dssReference.setId("r-id-" + referenceIndex);
+		final DSSReference dssReference = new DSSReference();
+		dssReference.setId("Reference-" + UUID.randomUUID() + "-" + referenceIndex);
 		dssReference.setUri("#" + params.getToCounterSignSignatureValueId());
 		dssReference.setType(xPathQueryHolder.XADES_COUNTERSIGNED_SIGNATURE);
 		dssReference.setContents(detachedDocument);
@@ -74,18 +79,36 @@ public class CounterSignatureBuilder extends EnvelopedSignatureBuilder {
 		final List<DSSTransform> dssTransformList = new ArrayList<DSSTransform>();
 
 		DSSTransform dssTransform = new DSSTransform();
-		dssTransform.setAlgorithm(CanonicalizationMethod.EXCLUSIVE);
-		//TODO dssTransform.setPerform(true);
+		dssTransform.setAlgorithm(CanonicalizationMethod.INCLUSIVE);
+		//dssTransform.setPerform(true);
 		dssTransformList.add(dssTransform);
 
 		dssReference.setTransforms(dssTransformList);
-		return  dssReference;
 
+		return dssReference;
 	}
 
 	@Override
 	protected Document buildRootDocumentDom() {
-		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+		return buildDOM();
+	}
+
+	public Document buildDOM() {
+
+		try {
+			ensureDocumentBuilder();
+			return dbFactory.newDocumentBuilder().newDocument();
+		} catch (Exception e) {
+			throw new DSSException(e);
+		}
+	}
+
+	private void ensureDocumentBuilder() throws DSSException {
+
+		if (dbFactory != null) {
+			return;
+		}
+		dbFactory = DocumentBuilderFactory.newInstance();
 		dbFactory.setNamespaceAware(true);
 		try {
 			// disable external entities
@@ -93,7 +116,6 @@ public class CounterSignatureBuilder extends EnvelopedSignatureBuilder {
 			dbFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
 			dbFactory.setXIncludeAware(false);
 			dbFactory.setExpandEntityReferences(false);
-			return dbFactory.newDocumentBuilder().newDocument();
 		} catch (ParserConfigurationException e) {
 			throw new DSSException(e);
 		}

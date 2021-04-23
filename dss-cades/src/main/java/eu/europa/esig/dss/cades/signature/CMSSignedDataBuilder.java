@@ -171,6 +171,38 @@ public class CMSSignedDataBuilder {
 		return getSignerInfoGeneratorBuilder(signedAttributes, unsignedAttributes);
 	}
 
+	public SignerInfoGeneratorBuilder getSignerInfoGeneratorBuilder(DigestCalculatorProvider digestCalculatorProvider, final CAdESSignatureParameters parameters,
+			final boolean includeUnsignedAttributes) {
+
+		final CAdESLevelBaselineB cadesProfile = new CAdESLevelBaselineB();
+		final AttributeTable signedAttributes = cadesProfile.getSignedAttributes(parameters);
+
+		AttributeTable unsignedAttributes = null;
+		if (includeUnsignedAttributes) {
+			unsignedAttributes = cadesProfile.getUnsignedAttributes();
+		}
+		return getSignerInfoGeneratorBuilder(digestCalculatorProvider, signedAttributes, unsignedAttributes);
+	}
+
+	private SignerInfoGeneratorBuilder getSignerInfoGeneratorBuilder(DigestCalculatorProvider digestCalculatorProvider, AttributeTable signedAttributes,
+			AttributeTable unsignedAttributes) {
+
+		if ((signedAttributes == null) || (signedAttributes.size() == 0)) {
+			signedAttributes = null;
+		}
+		final DefaultSignedAttributeTableGenerator signedAttributeGenerator = new DefaultSignedAttributeTableGenerator(signedAttributes);
+		if ((unsignedAttributes == null) || (unsignedAttributes.size() == 0)) {
+			unsignedAttributes = null;
+		}
+		final SimpleAttributeTableGenerator unsignedAttributeGenerator = new SimpleAttributeTableGenerator(unsignedAttributes);
+
+		SignerInfoGeneratorBuilder sigInfoGeneratorBuilder = new SignerInfoGeneratorBuilder(digestCalculatorProvider);
+		sigInfoGeneratorBuilder.setSignedAttributeGenerator(signedAttributeGenerator);
+		sigInfoGeneratorBuilder.setUnsignedAttributeGenerator(unsignedAttributeGenerator);
+		return sigInfoGeneratorBuilder;
+	}
+
+
 	/**
 	 * @param signedAttributes
 	 *            the signedAttributes

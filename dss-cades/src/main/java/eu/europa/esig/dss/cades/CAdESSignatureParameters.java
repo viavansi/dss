@@ -11,7 +11,7 @@ public class CAdESSignatureParameters extends AbstractSignatureParameters {
 	private String contentIdentifierPrefix;
 	private String contentIdentifierSuffix;
 
-	private String toCounterSignatureSerialNumberId;
+	private String signatureIdToCounterSign;
 
 	public String getContentHintsType() {
 		return contentHintsType;
@@ -60,12 +60,12 @@ public class CAdESSignatureParameters extends AbstractSignatureParameters {
 		this.contentIdentifierSuffix = contentIdentifierSuffix;
 	}
 
-	public String getToCounterSignatureSerialNumberId() {
-		return toCounterSignatureSerialNumberId;
+	public String getSignatureIdToCounterSign() {
+		return signatureIdToCounterSign;
 	}
 
-	public void setToCounterSignatureSerialNumberId(String toCounterSignatureSerialNumberId) {
-		this.toCounterSignatureSerialNumberId = toCounterSignatureSerialNumberId;
+	public void setSignatureIdToCounterSign(String signatureIdToCounterSign) {
+		this.signatureIdToCounterSign = signatureIdToCounterSign;
 	}
 
 	/**

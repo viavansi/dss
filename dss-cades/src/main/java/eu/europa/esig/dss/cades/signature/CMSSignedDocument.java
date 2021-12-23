@@ -20,23 +20,14 @@
  */
 package eu.europa.esig.dss.cades.signature;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
+import eu.europa.esig.dss.*;
+import eu.europa.esig.dss.utils.Utils;
+import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1OutputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.DEROutputStream;
 import org.bouncycastle.cms.CMSSignedData;
 
-import eu.europa.esig.dss.CommonDocument;
-import eu.europa.esig.dss.DSSASN1Utils;
-import eu.europa.esig.dss.DSSException;
-import eu.europa.esig.dss.DSSUtils;
-import eu.europa.esig.dss.DigestAlgorithm;
-import eu.europa.esig.dss.MimeType;
-import eu.europa.esig.dss.utils.Utils;
+import java.io.*;
 
 /**
  * A document composed by a CMSSignedData
@@ -74,13 +65,11 @@ public class CMSSignedDocument extends CommonDocument {
 	}
 
 	public byte[] getBytes() throws DSSException {
-		try {
-			final ByteArrayOutputStream output = new ByteArrayOutputStream();
-			final DEROutputStream derOutputStream = new DEROutputStream(output);
+		try (ByteArrayOutputStream output = new ByteArrayOutputStream()){
 			final byte[] encoded = signedData.getEncoded();
 			final ASN1Primitive asn1Primitive = DSSASN1Utils.toASN1Primitive(encoded);
-			derOutputStream.writeObject(asn1Primitive);
-			derOutputStream.close();
+			final ASN1OutputStream asn1OutputStream = ASN1OutputStream.create(output, ASN1Encoding.DER);
+			asn1OutputStream.writeObject(asn1Primitive);
 			return output.toByteArray();
 		} catch (IOException e) {
 			throw new DSSException(e);

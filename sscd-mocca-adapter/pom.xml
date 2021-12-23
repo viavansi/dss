@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V28</version>
+		<version>5.0.V29</version>
 	</parent>
 
 	<artifactId>sscd-mocca-adapter</artifactId>
@@ -13,7 +13,7 @@
 	<repositories>
 		<repository>
             <id>joinup-dss-thirdparty</id>
-            <url>http://joinup.ec.europa.eu/site/sd-dss/maven2</url>
+            <url>https://joinup.ec.europa.eu/site/sd-dss/maven2</url>
         </repository>
 	</repositories>
 

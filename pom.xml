@@ -5,7 +5,7 @@
 
 	<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 	<artifactId>sd-dss</artifactId>
-	<version>5.0.V28</version>
+	<version>5.0.V29</version>
 	<packaging>pom</packaging>
 	<name>Digital Signature Services</name>
 
@@ -48,14 +48,14 @@
 		<slf4j.version>1.7.22</slf4j.version>
 		<logback-classic.version>1.1.9</logback-classic.version>
 
-		<bouncycastle.version>1.56</bouncycastle.version>
+		<bouncycastle.version>1.67</bouncycastle.version>
 		<xmlsec.version>2.0.8</xmlsec.version>
 		<xalan.version>2.7.2</xalan.version>
 		<pdfbox.version>2.0.12</pdfbox.version>
 		<httpclient.version>4.5.2</httpclient.version>
 		<rs-api.version>2.0.1</rs-api.version>
 
-		<junit.version>4.11</junit.version>
+		<junit.version>4.13.1</junit.version>
 	</properties>
 
 	<licenses>
@@ -94,7 +94,7 @@
 		<module>dss-service</module>
 		<module>dss-spi</module>
 		<module>dss-test</module>
-		<module>sscd-mocca-adapter</module>
+		<!--<module>sscd-mocca-adapter</module>-->
 		<module>dss-policy-jaxb</module>
 		<module>dss-common-validation-jaxb</module>
 		<module>dss-tsl-jaxb</module>
@@ -294,11 +294,13 @@
 	<dependencyManagement>
 		<dependencies>
 			<!-- Internal Dependencies -->
+			<!--
 			<dependency>
 				<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 				<artifactId>sscd-mocca-adapter</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+			-->
 			<dependency>
 				<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 				<artifactId>dss-spi</artifactId>

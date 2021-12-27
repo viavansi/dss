@@ -141,9 +141,8 @@ public class CAdESLevelBaselineLT extends CAdESSignatureExtension {
 			final AlgorithmIdentifier sigAlgOID = new AlgorithmIdentifier(new ASN1ObjectIdentifier(x509crl.getSigAlgOID()));
 			final byte[] signature = x509crl.getSignature();
 			final DERSequence seq = new DERSequence(new ASN1Encodable[] { tbsCertList, sigAlgOID, new DERBitString(signature) });
-			final CertificateList x509CRL = new CertificateList(seq);
-			// final CertificateList x509CRL = new
-			// CertificateList.getInstance((Object)seq);
+			//final CertificateList x509CRL = CertificateList.getInstance(seq);
+			final CertificateList x509CRL = CertificateList.getInstance((Object)seq);
 			final X509CRLHolder x509crlHolder = new X509CRLHolder(x509CRL);
 			return x509crlHolder;
 		} catch (CRLException e) {

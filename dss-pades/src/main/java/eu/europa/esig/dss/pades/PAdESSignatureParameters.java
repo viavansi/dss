@@ -15,6 +15,7 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
 	private String softwareVersion;
     private String password;
     private String customId;
+	private boolean externalPkcs7Signature;
 
 	private int signatureSize = 9472; // default value in pdfbox
 
@@ -128,4 +129,11 @@ public class PAdESSignatureParameters extends CAdESSignatureParameters {
         this.customId = customId;
     }
 
+	public boolean isExternalPkcs7Signature() {
+		return externalPkcs7Signature;
+	}
+
+	public void setExternalPkcs7Signature(boolean externalPkcs7Signature) {
+		this.externalPkcs7Signature = externalPkcs7Signature;
+	}
 }

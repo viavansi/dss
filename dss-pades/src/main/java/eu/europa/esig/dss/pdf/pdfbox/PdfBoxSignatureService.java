@@ -136,7 +136,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 pdVisibleSigProperties = fillImageParameters(pdDocument, pAdESSignatureParameters.getImageParameters(), options);
             }
 
-            if (pAdESSignatureParameters.getSignaturePackaging().equals(SignaturePackaging.DETACHED)){
+            if (pAdESSignatureParameters.isExternalPkcs7Signature()){
 
                 if (pdDocument.getDocumentId() == null) {
                     final byte[] documentIdBytes = DSSUtils.digest(DigestAlgorithm.MD5, pAdESSignatureParameters.bLevel().getSigningDate().toString().getBytes());
@@ -422,7 +422,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         Date date = parameters.bLevel().getSigningDate();
         String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
         CertificateToken token = parameters.getSigningCertificate();
-        if (token == null) {
+        if (token == null || parameters.isExternalPkcs7Signature()) {
             signature.setName("Unknown signer" + encodedDate);
         } else {
             signature.setName(DSSUtils.getDeterministicId(date, token.getDSSId()) + "##" + parameters.getCustomId());

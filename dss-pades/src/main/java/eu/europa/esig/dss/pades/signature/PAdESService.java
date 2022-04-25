@@ -91,7 +91,7 @@ public class PAdESService extends AbstractSignatureService<PAdESSignatureParamet
         final byte[] messageDigest = pdfSignatureService.digest(inputStream, parameters, parameters.getDigestAlgorithm());
         Utils.closeQuietly(inputStream);
 
-        if (parameters.getSignaturePackaging().equals(SignaturePackaging.DETACHED)) {
+        if (parameters.isExternalPkcs7Signature()) {
             return new ToBeSigned(messageDigest);
         } else {
             SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = padesCMSSignedDataBuilder.getSignerInfoGeneratorBuilder(parameters, messageDigest);
@@ -121,7 +121,7 @@ public class PAdESService extends AbstractSignatureService<PAdESSignatureParamet
         final PDFSignatureService pdfSignatureService = PdfObjFactory.getInstance().newPAdESSignatureService();
 
         CMSSignedData data = null;
-        if (parameters.getSignaturePackaging().equals(SignaturePackaging.DETACHED)) {
+        if (parameters.isExternalPkcs7Signature()) {
 
 			try {
 				data = new CMSSignedData(signatureValue.getValue());

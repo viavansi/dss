@@ -20,10 +20,7 @@
  */
 package eu.europa.esig.dss.pdf.pdfbox;
 
-import eu.europa.esig.dss.DSSDocument;
-import eu.europa.esig.dss.DSSException;
-import eu.europa.esig.dss.DSSUtils;
-import eu.europa.esig.dss.DigestAlgorithm;
+import eu.europa.esig.dss.*;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
 import eu.europa.esig.dss.pades.SignatureImageParameters;
 import eu.europa.esig.dss.pades.signature.visible.ImageAndResolution;
@@ -60,11 +57,7 @@ import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuild;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDPropBuildDataDict;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.*;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
@@ -131,33 +124,68 @@ class PdfBoxSignatureService implements PDFSignatureService {
     private byte[] signDocumentAndReturnDigest(final PAdESSignatureParameters pAdESSignatureParameters, final byte[] signatureBytes, final OutputStream fileOutputStream, final PDDocument pdDocument,
             final PDSignature pdSignature, final DigestAlgorithm digestAlgorithm) throws DSSException {
 
+        byte[] digestData = null;
         SignatureOptions options = new SignatureOptions();
         try {
 
             final MessageDigest digest = DSSUtils.getMessageDigest(digestAlgorithm);
-            // register signature dictionary and sign interface
-            SignatureInterface signatureInterface = new SignatureInterface() {
 
-                @Override
-                public byte[] sign(InputStream content) throws IOException {
-
-                    byte[] b = new byte[4096];
-                    int count;
-                    while ((count = content.read(b)) > 0) {
-                        digest.update(b, 0, count);
-                    }
-                    return signatureBytes;
-                }
-            };
-
-            options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
             PDVisibleSigProperties pdVisibleSigProperties = null;
 
             if (pAdESSignatureParameters.getImageParameters() != null) {
                 pdVisibleSigProperties = fillImageParameters(pdDocument, pAdESSignatureParameters.getImageParameters(), options);
             }
 
-            pdDocument.addSignature(pdSignature, signatureInterface, options);
+            if (pAdESSignatureParameters.isExternalPkcs7Signature()){
+
+                if (pdDocument.getDocumentId() == null) {
+                    final byte[] documentIdBytes = DSSUtils.digest(DigestAlgorithm.MD5, pAdESSignatureParameters.bLevel().getSigningDate().toString().getBytes());
+                    pdDocument.setDocumentId(DSSUtils.toLong(documentIdBytes));
+                }
+
+                options.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE * 10);
+
+                pdDocument.addSignature(pdSignature, options);
+
+                ExternalSigningSupport externalSigning = pdDocument.saveIncrementalForExternalSigning(fileOutputStream);
+                byte[] dataToSign = IOUtils.toByteArray(externalSigning.getContent());
+
+                if (signatureBytes != null) {
+                    externalSigning.setSignature(signatureBytes);
+                }
+
+                digestData = digest.digest(dataToSign);
+
+                logger.info("Digest to be signed: {}", Utils.toHex(digestData));
+
+
+            }else{
+
+                options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
+
+                // register signature dictionary and sign interface
+                SignatureInterface signatureInterface = new SignatureInterface() {
+
+                    @Override
+                    public byte[] sign(InputStream content) throws IOException {
+
+                        byte[] b = new byte[4096];
+                        int count;
+                        while ((count = content.read(b)) > 0) {
+                            digest.update(b, 0, count);
+                        }
+                        return signatureBytes;
+                    }
+                };
+
+                digestData = digest.digest();
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Digest to be signed: {}", Utils.toHex(digestData));
+                }
+
+                pdDocument.addSignature(pdSignature, signatureInterface, options);
+            }
+
             PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
 
             // FIX Viafirma
@@ -169,12 +197,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
             if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null) {
                 stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
             }
+
             saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
-            final byte[] digestValue = digest.digest();
-            if (logger.isDebugEnabled()) {
-                logger.debug("Digest to be signed: {}", Utils.toHex(digestValue));
-            }
-            return digestValue;
+            return digestData;
         } catch (IOException e) {
             throw new DSSException(e);
         } finally {
@@ -397,7 +422,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         Date date = parameters.bLevel().getSigningDate();
         String encodedDate = " " + Utils.toHex(DSSUtils.digest(DigestAlgorithm.SHA1, Long.toString(date.getTime()).getBytes()));
         CertificateToken token = parameters.getSigningCertificate();
-        if (token == null) {
+        if (token == null || parameters.isExternalPkcs7Signature()) {
             signature.setName("Unknown signer" + encodedDate);
         } else {
             signature.setName(DSSUtils.getDeterministicId(date, token.getDSSId()) + "##" + parameters.getCustomId());

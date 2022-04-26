@@ -20,7 +20,10 @@
  */
 package eu.europa.esig.dss.pdf.pdfbox;
 
-import eu.europa.esig.dss.*;
+import eu.europa.esig.dss.DSSDocument;
+import eu.europa.esig.dss.DSSException;
+import eu.europa.esig.dss.DSSUtils;
+import eu.europa.esig.dss.DigestAlgorithm;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
 import eu.europa.esig.dss.pades.SignatureImageParameters;
 import eu.europa.esig.dss.pades.signature.visible.ImageAndResolution;
@@ -122,13 +125,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
     }
 
     private byte[] signDocumentAndReturnDigest(final PAdESSignatureParameters pAdESSignatureParameters, final byte[] signatureBytes, final OutputStream fileOutputStream, final PDDocument pdDocument,
-            final PDSignature pdSignature, final DigestAlgorithm digestAlgorithm) throws DSSException {
+                                               final PDSignature pdSignature, final DigestAlgorithm digestAlgorithm) throws DSSException {
 
-        byte[] digestData = null;
         SignatureOptions options = new SignatureOptions();
         try {
 
             final MessageDigest digest = DSSUtils.getMessageDigest(digestAlgorithm);
+            byte[] digestValue = null;
 
             PDVisibleSigProperties pdVisibleSigProperties = null;
 
@@ -154,14 +157,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
                     externalSigning.setSignature(signatureBytes);
                 }
 
-                digestData = digest.digest(dataToSign);
+                digestValue = digest.digest(dataToSign);
 
-                logger.info("Digest to be signed: {}", Utils.toHex(digestData));
-
+                logger.info("Digest to be signed: {}", Utils.toHex(digestValue));
 
             }else{
-
-                options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
 
                 // register signature dictionary and sign interface
                 SignatureInterface signatureInterface = new SignatureInterface() {
@@ -178,11 +178,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
                     }
                 };
 
-                digestData = digest.digest();
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Digest to be signed: {}", Utils.toHex(digestData));
-                }
-
+                options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
                 pdDocument.addSignature(pdSignature, signatureInterface, options);
             }
 
@@ -197,9 +193,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
             if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null) {
                 stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
             }
-
             saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
-            return digestData;
+            digestValue = digest.digest();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Digest to be signed: {}", Utils.toHex(digestValue));
+            }
+            return digestValue;
         } catch (IOException e) {
             throw new DSSException(e);
         } finally {
@@ -208,114 +207,114 @@ class PdfBoxSignatureService implements PDFSignatureService {
     }
 
     private void stampSignedDocument(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties,
-            SignatureImageParameters imageParameters) throws IOException {
+                                     SignatureImageParameters imageParameters) throws IOException {
 
         for (int i = 0; i < document.getNumberOfPages(); i++) {
             //if (signatureOptions.getPage() != i) {
-                PDPage page = document.getPage(i);
-                List<PDAnnotation> annotations = page.getAnnotations();
+            PDPage page = document.getPage(i);
+            List<PDAnnotation> annotations = page.getAnnotations();
 
-                COSDictionary dict = page.getCOSObject();
-                while (dict.containsKey(COSName.PARENT)) {
-                    COSBase parent = dict.getDictionaryObject(COSName.PARENT);
-                    if (parent instanceof COSDictionary) {
-                        dict = (COSDictionary) parent;
-                        dict.setNeedToBeUpdated(true);
-                    }
+            COSDictionary dict = page.getCOSObject();
+            while (dict.containsKey(COSName.PARENT)) {
+                COSBase parent = dict.getDictionaryObject(COSName.PARENT);
+                if (parent instanceof COSDictionary) {
+                    dict = (COSDictionary) parent;
+                    dict.setNeedToBeUpdated(true);
                 }
-
-                ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
-                PDImageXObject pdImageXObject;
-                try (InputStream is = ires.getInputStream()) {
-                    pdImageXObject = PDImageXObject.createFromByteArray(document, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
-                }
-
-                // stamp
-                PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
-                stamp.setName(pAdESSignatureParameters.getReason());
-                stamp.setContents(null);
-                stamp.setLocked(true);
-                stamp.setReadOnly(true);
-                stamp.setPrinted(true);
-
-                Calendar calendar = Calendar.getInstance();
-                calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
-                stamp.setCreationDate(calendar);
-                stamp.setModifiedDate(calendar);
-
-                PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
-
-                int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
-                int pageRotation = page.getRotation();
-
-                float width = signDesigner.getWidth();
-                float height = signDesigner.getHeight();
-                if (signDesignerRotation == 0 && (pageRotation == 90 || pageRotation == 270)) {
-                    float temp = width;
-                    width = height;
-                    height = temp;
-                }
-
-                float pageWidth = page.getMediaBox().getWidth();
-                float pageHeight = page.getMediaBox().getHeight();
-
-                float stamperX;
-                float stamperY;
-                if (pageRotation == 90) {
-                    stamperX = imageParameters.getyAxis();
-                    stamperY = -imageParameters.getxAxis();
-                } else if (pageRotation == 270) {
-                    stamperX = -imageParameters.getyAxis();
-                    stamperY = imageParameters.getxAxis();
-                } else {
-                    stamperX = imageParameters.getxAxis();
-                    stamperY = imageParameters.getyAxis();
-                }
-
-                // Uses negative position for inverted axis origin
-                float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
-                float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
-
-                PDRectangle rectangle = new PDRectangle(x, y, width, height);
-                PDFormXObject form = new PDFormXObject(document);
-                form.setResources(new PDResources());
-                form.setBBox(rectangle);
-                form.setFormType(1);
-
-                form.getResources().getCOSObject().setNeedToBeUpdated(true);
-                form.getResources().add(pdImageXObject);
-                PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
-                PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
-                appearance.setNormalAppearance(appearanceStream);
-                stamp.setAppearance(appearance);
-                stamp.setRectangle(rectangle);
-                PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
-
-                AffineTransform affineTransform;
-                if (pageRotation == 90) {
-                    affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
-                } else if (pageRotation == 270) {
-                    affineTransform = new AffineTransform(0, -height, width, 0, x, y + height);
-                } else {
-                    affineTransform = new AffineTransform(width, 0, 0, height, x, y);
-                }
-                stream.drawImage(pdImageXObject, new Matrix(affineTransform));
-
-                stream.close();
-                // close and save
-                annotations.add(stamp);
-
-                appearanceStream.getCOSObject().setNeedToBeUpdated(true);
-                appearance.getCOSObject().setNeedToBeUpdated(true);
-                rectangle.getCOSArray().setNeedToBeUpdated(true);
-                stamp.getCOSObject().setNeedToBeUpdated(true);
-                form.getCOSObject().setNeedToBeUpdated(true);
-                COSArrayList<PDAnnotation> list = (COSArrayList<PDAnnotation>) annotations;
-                COSArrayList.converterToCOSArray(list).setNeedToBeUpdated(true);
-                document.getPages().getCOSObject().setNeedToBeUpdated(true);
-                page.getCOSObject().setNeedToBeUpdated(true);
-                document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
             }
+
+            ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
+            PDImageXObject pdImageXObject;
+            try (InputStream is = ires.getInputStream()) {
+                pdImageXObject = PDImageXObject.createFromByteArray(document, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
+            }
+
+            // stamp
+            PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
+            stamp.setName(pAdESSignatureParameters.getReason());
+            stamp.setContents(null);
+            stamp.setLocked(true);
+            stamp.setReadOnly(true);
+            stamp.setPrinted(true);
+
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
+            stamp.setCreationDate(calendar);
+            stamp.setModifiedDate(calendar);
+
+            PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
+
+            int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
+            int pageRotation = page.getRotation();
+
+            float width = signDesigner.getWidth();
+            float height = signDesigner.getHeight();
+            if (signDesignerRotation == 0 && (pageRotation == 90 || pageRotation == 270)) {
+                float temp = width;
+                width = height;
+                height = temp;
+            }
+
+            float pageWidth = page.getMediaBox().getWidth();
+            float pageHeight = page.getMediaBox().getHeight();
+
+            float stamperX;
+            float stamperY;
+            if (pageRotation == 90) {
+                stamperX = imageParameters.getyAxis();
+                stamperY = -imageParameters.getxAxis();
+            } else if (pageRotation == 270) {
+                stamperX = -imageParameters.getyAxis();
+                stamperY = imageParameters.getxAxis();
+            } else {
+                stamperX = imageParameters.getxAxis();
+                stamperY = imageParameters.getyAxis();
+            }
+
+            // Uses negative position for inverted axis origin
+            float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
+            float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
+
+            PDRectangle rectangle = new PDRectangle(x, y, width, height);
+            PDFormXObject form = new PDFormXObject(document);
+            form.setResources(new PDResources());
+            form.setBBox(rectangle);
+            form.setFormType(1);
+
+            form.getResources().getCOSObject().setNeedToBeUpdated(true);
+            form.getResources().add(pdImageXObject);
+            PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
+            PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
+            appearance.setNormalAppearance(appearanceStream);
+            stamp.setAppearance(appearance);
+            stamp.setRectangle(rectangle);
+            PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
+
+            AffineTransform affineTransform;
+            if (pageRotation == 90) {
+                affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
+            } else if (pageRotation == 270) {
+                affineTransform = new AffineTransform(0, -height, width, 0, x, y + height);
+            } else {
+                affineTransform = new AffineTransform(width, 0, 0, height, x, y);
+            }
+            stream.drawImage(pdImageXObject, new Matrix(affineTransform));
+
+            stream.close();
+            // close and save
+            annotations.add(stamp);
+
+            appearanceStream.getCOSObject().setNeedToBeUpdated(true);
+            appearance.getCOSObject().setNeedToBeUpdated(true);
+            rectangle.getCOSArray().setNeedToBeUpdated(true);
+            stamp.getCOSObject().setNeedToBeUpdated(true);
+            form.getCOSObject().setNeedToBeUpdated(true);
+            COSArrayList<PDAnnotation> list = (COSArrayList<PDAnnotation>) annotations;
+            COSArrayList.converterToCOSArray(list).setNeedToBeUpdated(true);
+            document.getPages().getCOSObject().setNeedToBeUpdated(true);
+            page.getCOSObject().setNeedToBeUpdated(true);
+            document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
+        }
         //}
     }
 

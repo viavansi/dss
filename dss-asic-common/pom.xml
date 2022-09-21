@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V32</version>
+		<version>5.0.V33</version>
 	</parent>
 
 	<artifactId>dss-asic-common</artifactId>

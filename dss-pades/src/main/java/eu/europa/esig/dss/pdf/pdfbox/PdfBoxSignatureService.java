@@ -56,10 +56,8 @@ import org.apache.pdfbox.pdmodel.common.COSArrayList;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
-import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
+import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
+import org.apache.pdfbox.pdmodel.interactive.annotation.*;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.*;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
@@ -192,6 +190,8 @@ class PdfBoxSignatureService implements PDFSignatureService {
             }
             if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null) {
                 stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
+            } else if(pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getLink()!=null && pdVisibleSigProperties != null){
+                addLink(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
             }
             saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
             digestValue = digest.digest();
@@ -231,11 +231,17 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
             // stamp
             PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
+            PDAnnotationLink link = new PDAnnotationLink();
             stamp.setName(pAdESSignatureParameters.getReason());
             stamp.setContents(null);
             stamp.setLocked(true);
             stamp.setReadOnly(true);
             stamp.setPrinted(true);
+
+            // add an action
+            PDActionURI action = new PDActionURI();
+            action.setURI(pAdESSignatureParameters.getLink());
+            link.setAction(action);
 
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
@@ -288,6 +294,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
             appearance.setNormalAppearance(appearanceStream);
             stamp.setAppearance(appearance);
             stamp.setRectangle(rectangle);
+            link.setRectangle(rectangle);
             PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
 
             AffineTransform affineTransform;
@@ -303,7 +310,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
             stream.close();
             // close and save
             annotations.add(stamp);
-
+            if(pAdESSignatureParameters.getLink()!=null) {
+                annotations.add(link);
+            }
             appearanceStream.getCOSObject().setNeedToBeUpdated(true);
             appearance.getCOSObject().setNeedToBeUpdated(true);
             rectangle.getCOSArray().setNeedToBeUpdated(true);
@@ -317,6 +326,92 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
         //}
     }
+
+    private void addLink(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties,
+                                     SignatureImageParameters imageParameters) throws IOException {
+        if(imageParameters.getPage()>0) {
+            PDPage page = document.getPage(imageParameters.getPage() - 1);
+            List<PDAnnotation> annotations = page.getAnnotations();
+
+            COSDictionary dict = page.getCOSObject();
+            while (dict.containsKey(COSName.PARENT)) {
+                COSBase parent = dict.getDictionaryObject(COSName.PARENT);
+                if (parent instanceof COSDictionary) {
+                    dict = (COSDictionary) parent;
+                    dict.setNeedToBeUpdated(true);
+                }
+            }
+
+            // link
+            PDAnnotationLink link = new PDAnnotationLink();
+
+            // add an action
+            PDActionURI action = new PDActionURI();
+            action.setURI(pAdESSignatureParameters.getLink());
+            link.setAction(action);
+
+            PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
+
+            int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
+            int pageRotation = page.getRotation();
+
+            float width = signDesigner.getWidth();
+            float height = signDesigner.getHeight();
+            if (signDesignerRotation == 0 && (pageRotation == 90 || pageRotation == 270)) {
+                float temp = width;
+                width = height;
+                height = temp;
+            }
+
+            float pageWidth = page.getMediaBox().getWidth();
+            float pageHeight = page.getMediaBox().getHeight();
+
+            float stamperX;
+            float stamperY;
+            if (pageRotation == 90) {
+                stamperX = imageParameters.getyAxis();
+                stamperY = -imageParameters.getxAxis();
+            } else if (pageRotation == 270) {
+                stamperX = -imageParameters.getyAxis();
+                stamperY = imageParameters.getxAxis();
+            } else {
+                stamperX = imageParameters.getxAxis();
+                stamperY = imageParameters.getyAxis();
+            }
+
+            // Uses negative position for inverted axis origin
+            float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
+            float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
+
+            PDRectangle rectangle = new PDRectangle(x, y, width, height);
+            PDFormXObject form = new PDFormXObject(document);
+            form.setResources(new PDResources());
+            form.setBBox(rectangle);
+            form.setFormType(1);
+
+            form.getResources().getCOSObject().setNeedToBeUpdated(true);
+            PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
+            PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
+            appearance.setNormalAppearance(appearanceStream);
+
+            link.setRectangle(rectangle);
+            // close and save
+            if (pAdESSignatureParameters.getLink() != null) {
+                annotations.add(link);
+            }
+            appearanceStream.getCOSObject().setNeedToBeUpdated(true);
+            appearance.getCOSObject().setNeedToBeUpdated(true);
+            rectangle.getCOSArray().setNeedToBeUpdated(true);
+            link.getCOSObject().setNeedToBeUpdated(true);
+            form.getCOSObject().setNeedToBeUpdated(true);
+            COSArrayList<PDAnnotation> list = (COSArrayList<PDAnnotation>) annotations;
+            COSArrayList.converterToCOSArray(list).setNeedToBeUpdated(true);
+            document.getPages().getCOSObject().setNeedToBeUpdated(true);
+            page.getCOSObject().setNeedToBeUpdated(true);
+            document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
+        }
+    }
+
 
     private PDVisibleSigProperties fillImageParameters(final PDDocument pdDocument, final SignatureImageParameters signatureImageParameters, SignatureOptions signatureOptions) throws IOException {
 

@@ -63,6 +63,8 @@ import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleS
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.util.Matrix;
+import org.bouncycastle.util.encoders.Base64;
+import org.bouncycastle.util.encoders.Base64Encoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -150,14 +152,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
                 ExternalSigningSupport externalSigning = pdDocument.saveIncrementalForExternalSigning(fileOutputStream);
                 byte[] dataToSign = IOUtils.toByteArray(externalSigning.getContent());
-
-                if (signatureBytes != null) {
+                if (signatureBytes != null && signatureBytes.length > 0) {
                     externalSigning.setSignature(signatureBytes);
                 }
 
-                digestValue = digest.digest(dataToSign);
-
-                logger.info("Digest to be signed: {}", Utils.toHex(digestValue));
+                digest.update(dataToSign);
 
             }else{
 
@@ -196,7 +195,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
             saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
             digestValue = digest.digest();
             if (logger.isDebugEnabled()) {
-                logger.debug("Digest to be signed: {}", Utils.toHex(digestValue));
+                logger.debug("Digest to be signed: {}", Base64.toBase64String(digestValue));
             }
             return digestValue;
         } catch (IOException e) {

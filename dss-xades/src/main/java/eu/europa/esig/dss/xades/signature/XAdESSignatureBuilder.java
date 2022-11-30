@@ -318,7 +318,7 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
             */
         }
 
-        /*
+
         String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
         final Element reference = DomUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
         reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
@@ -341,7 +341,7 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         }
         incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
 
-         */
+
     }
 
     /**

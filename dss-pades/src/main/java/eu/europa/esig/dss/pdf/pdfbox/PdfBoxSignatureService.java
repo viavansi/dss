@@ -54,6 +54,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.COSArrayList;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
@@ -62,7 +63,15 @@ import org.apache.pdfbox.pdmodel.interactive.digitalsignature.*;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.pdmodel.interactive.form.PDField;
+import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
 import org.apache.pdfbox.util.Matrix;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import org.bouncycastle.cms.CMSAbsentContent;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Base64Encoder;
 import org.slf4j.Logger;
@@ -187,7 +196,26 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 // becoming invisible
                 acroForm.getCOSObject().removeItem(COSName.NEED_APPEARANCES);
             }
-            if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null) {
+
+//  Test same digital in all pages
+//            if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null && pdDocument.getNumberOfPages() > 1) {
+//                ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
+//                PDImageXObject pdImageXObject;
+//                try (InputStream is = ires.getInputStream()) {
+//                    pdImageXObject = PDImageXObject.createFromByteArray(pdDocument, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
+//                }
+//
+//                for (PDPage pdPage : pdDocument.getPages()) {
+//                    PDRectangle rectangle = createSignatureRectangle(pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters(), pdPage);
+//                    addImageOnlySignatureField(pdDocument, pdPage, rectangle, pdSignature, pdImageXObject);
+//                }
+//            }
+// END Test
+            if (pAdESSignatureParameters.getImageParameters() != null
+                    && pAdESSignatureParameters.getImageParameters().isInAllPages()
+                    && pdVisibleSigProperties != null
+                    && pdDocument.getNumberOfPages() > 1
+            ) {
                 stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
             } else if(pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getLink()!=null && pdVisibleSigProperties != null){
                 addLink(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
@@ -324,6 +352,90 @@ class PdfBoxSignatureService implements PDFSignatureService {
             document.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
         }
         //}
+    }
+
+    /**
+     * https://github.com/mkl-public/testarea-pdfbox2/blob/master/src/test/java/mkl/testarea/pdfbox2/sign/CreateMultipleVisualizations.java#L130
+     */
+    private void addImageOnlySignatureField(PDDocument pdDocument, PDPage pdPage, PDRectangle rectangle, PDSignature signature, PDImageXObject pdImage) throws IOException {
+        PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
+        List<PDField> acroFormFields = acroForm.getFields();
+
+        PDSignatureField signatureField = new PDSignatureField(acroForm);
+        signatureField.setValue(signature);
+        PDAnnotationWidget widget = signatureField.getWidgets().get(0);
+        acroFormFields.add(signatureField);
+
+        widget.setRectangle(rectangle);
+        widget.setPage(pdPage);
+
+        // from PDVisualSigBuilder.createHolderForm()
+        PDStream stream = new PDStream(pdDocument);
+        PDFormXObject form = new PDFormXObject(stream);
+        PDResources res = new PDResources();
+        form.setResources(res);
+        form.setFormType(1);
+        PDRectangle bbox = new PDRectangle(rectangle.getWidth(), rectangle.getHeight());
+
+        form.setBBox(bbox);
+
+        // from PDVisualSigBuilder.createAppearanceDictionary()
+        PDAppearanceDictionary appearance = new PDAppearanceDictionary();
+        appearance.getCOSObject().setDirect(true);
+        PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
+        appearance.setNormalAppearance(appearanceStream);
+        widget.setAppearance(appearance);
+
+        try (   PDPageContentStream cs = new PDPageContentStream(pdDocument, appearanceStream)) {
+            cs.addComment("This is a comment");
+            cs.drawImage(pdImage, 0, 0, rectangle.getWidth(), rectangle.getHeight());
+        }
+
+        pdPage.getAnnotations().add(widget);
+
+        COSDictionary pageTreeObject = pdPage.getCOSObject();
+        while (pageTreeObject != null) {
+            pageTreeObject.setNeedToBeUpdated(true);
+            pageTreeObject = (COSDictionary) pageTreeObject.getDictionaryObject(COSName.PARENT);
+        }
+    }
+
+    private PDRectangle createSignatureRectangle(PDVisibleSigProperties pdVisibleSigProperties, SignatureImageParameters imageParameters, PDPage page){
+
+        PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
+
+        int signDesignerRotation = page.getRotation();
+        int pageRotation = page.getRotation();
+
+        float width = signDesigner.getWidth();
+        float height = signDesigner.getHeight();
+        if (signDesignerRotation == 0 && (pageRotation == 90 || pageRotation == 270)) {
+            float temp = width;
+            width = height;
+            height = temp;
+        }
+
+        float pageWidth = page.getMediaBox().getWidth();
+        float pageHeight = page.getMediaBox().getHeight();
+
+        float stamperX;
+        float stamperY;
+        if (pageRotation == 90) {
+            stamperX = imageParameters.getyAxis();
+            stamperY = -imageParameters.getxAxis();
+        } else if (pageRotation == 270) {
+            stamperX = -imageParameters.getyAxis();
+            stamperY = imageParameters.getxAxis();
+        } else {
+            stamperX = imageParameters.getxAxis();
+            stamperY = imageParameters.getyAxis();
+        }
+
+        // Uses negative position for inverted axis origin
+        float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
+        float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
+
+        return new PDRectangle(x, y, width, height);
     }
 
     private void addLink(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties,
@@ -630,34 +742,44 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
                 for (PDSignature signature : pdSignatures) {
                     String subFilter = signature.getSubFilter();
-                    byte[] cms = signature.getContents(originalBytes);
 
-                    if (Utils.isStringEmpty(subFilter) || Utils.isArrayEmpty(cms)) {
-                        logger.warn("Wrong signature with empty subfilter or cms.");
-                        continue;
-                    }
-
-                    byte[] signedContent = signature.getSignedContent(originalBytes);
-                    int[] byteRange = signature.getByteRange();
-
-                    PdfSignatureOrDocTimestampInfo signatureInfo;
-                    if (PdfBoxDocTimeStampService.SUB_FILTER_ETSI_RFC3161.getName().equals(subFilter)) {
-                        boolean isArchiveTimestamp = false;
-
-                        // LT or LTA
-                        if (dssDictionary != null) {
-                            // check is DSS dictionary already exist
-                            if (isDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent), password)) {
-                                isArchiveTimestamp = true;
+                    try{
+                        byte[] cms = null;
+                        try{
+                            cms = signature.getContents(originalBytes);
+                            if (Utils.isStringEmpty(subFilter) || Utils.isArrayEmpty(cms)) {
+                                logger.warn("Wrong signature with empty subfilter or cms.");
+                                continue;
                             }
+                        }catch (Exception e){
+                            logger.warn(e.getMessage(), e);
+                            continue;
                         }
 
-                        signatureInfo = new PdfBoxDocTimestampInfo(validationCertPool, signature, dssDictionary, cms, signedContent, isArchiveTimestamp);
-                    } else {
-                        signatureInfo = new PdfBoxSignatureInfo(validationCertPool, signature, dssDictionary, cms, signedContent);
-                    }
+                        byte[] signedContent = signature.getSignedContent(originalBytes);
+                        int[] byteRange = signature.getByteRange();
 
-                    signatures.add(signatureInfo);
+                        PdfSignatureOrDocTimestampInfo signatureInfo;
+                        if (PdfBoxDocTimeStampService.SUB_FILTER_ETSI_RFC3161.getName().equals(subFilter)) {
+                            boolean isArchiveTimestamp = false;
+
+                            // LT or LTA
+                            if (dssDictionary != null) {
+                                // check is DSS dictionary already exist
+                                if (isDSSDictionaryPresentInPreviousRevision(getOriginalBytes(byteRange, signedContent), password)) {
+                                    isArchiveTimestamp = true;
+                                }
+                            }
+
+                            signatureInfo = new PdfBoxDocTimestampInfo(validationCertPool, signature, dssDictionary, cms, signedContent, isArchiveTimestamp);
+                        } else {
+                            signatureInfo = new PdfBoxSignatureInfo(validationCertPool, signature, dssDictionary, cms, signedContent);
+                        }
+
+                        signatures.add(signatureInfo);
+                    }catch (Exception e){
+                        logger.warn(e.getMessage(), e);
+                    }
                 }
                 Collections.sort(signatures, new PdfSignatureOrDocTimestampInfoComparator());
                 linkSignatures(signatures);

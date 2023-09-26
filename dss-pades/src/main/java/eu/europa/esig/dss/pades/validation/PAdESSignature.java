@@ -424,7 +424,7 @@ public class PAdESSignature extends CAdESSignature {
 			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_LT);
 			break;
 		case PAdES_BASELINE_LT:
-			dataForLevelPresent = hasDSSDictionary();
+			dataForLevelPresent = pdfSignatureInfo.getDssDictionary() != null && pdfSignatureInfo.getOuterSignatures() != null && pdfSignatureInfo.getOuterSignatures().size() > 0;
 			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_T);
 			break;
 		case PAdES_BASELINE_T:

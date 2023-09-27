@@ -552,7 +552,7 @@
 		<repository>
             <id>viavansi</id>
             <name>Viavansi Repository</name>
-            <url>http://repositorio.viavansi.com/libs-releases-local</url>
+            <url>https://repositorio.viavansi.com/libs-releases-local</url>
         </repository>
 <!--
 			<repository>

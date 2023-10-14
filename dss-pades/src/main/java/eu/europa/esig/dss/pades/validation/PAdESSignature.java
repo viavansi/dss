@@ -421,17 +421,17 @@ public class PAdESSignature extends CAdESSignature {
 		case PAdES_BASELINE_LTA:
 			dataForLevelPresent = isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_LT);
 			dataForLevelPresent = dataForLevelPresent && hasLTAProfile();
-			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LTA present) -> " + dataForLevelPresent);
+			logger.debug(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LTA present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_LT:
 			dataForLevelPresent = isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_T);
 			dataForLevelPresent = dataForLevelPresent && hasLTProfile();
-			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LT present) -> " + dataForLevelPresent);
+			logger.debug(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LT present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_T:
 			dataForLevelPresent = Utils.isCollectionNotEmpty(getSignatureTimestamps());
 			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_B);
-			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_T present) -> " + dataForLevelPresent);
+			logger.debug(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_T present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_B:
 			dataForLevelPresent = (pdfSignatureInfo != null);

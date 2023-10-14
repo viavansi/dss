@@ -419,21 +419,22 @@ public class PAdESSignature extends CAdESSignature {
 		case PDF_NOT_ETSI:
 			break;
 		case PAdES_BASELINE_LTA:
-			dataForLevelPresent = Utils.isCollectionNotEmpty(getArchiveTimestamps());
-			// c &= fct() will process fct() all time ; c = c && fct() will process fct() only if c is true
-			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_LT);
+			dataForLevelPresent = isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_LT);
+			dataForLevelPresent = dataForLevelPresent && hasLTAProfile();
+			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LTA present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_LT:
-			dataForLevelPresent = pdfSignatureInfo.getDssDictionary() != null && pdfSignatureInfo.getOuterSignatures() != null && pdfSignatureInfo.getOuterSignatures().size() > 0;
-			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_T);
+			dataForLevelPresent = isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_T);
+			dataForLevelPresent = dataForLevelPresent && hasLTProfile();
+			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_LT present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_T:
 			dataForLevelPresent = Utils.isCollectionNotEmpty(getSignatureTimestamps());
 			dataForLevelPresent = dataForLevelPresent && isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_B);
+			logger.error(pdfSignatureInfo.getReason() + " - " + pdfSignatureInfo.getLocation() + " (data for level PAdES_T present) -> " + dataForLevelPresent);
 			break;
 		case PAdES_BASELINE_B:
 			dataForLevelPresent = (pdfSignatureInfo != null);
-			// && "ETSI.CAdES.detached".equals(pdfSignatureInfo.getSubFilter());
 			break;
 		default:
 			throw new IllegalArgumentException("Unknown level " + signatureLevel);

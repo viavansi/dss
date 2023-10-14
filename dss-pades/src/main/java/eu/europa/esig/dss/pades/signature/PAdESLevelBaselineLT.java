@@ -45,6 +45,8 @@ import eu.europa.esig.dss.validation.DefaultAdvancedSignature;
 import eu.europa.esig.dss.validation.ValidationContext;
 import eu.europa.esig.dss.x509.CertificateToken;
 import eu.europa.esig.dss.x509.tsp.TSPSource;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.util.Store;
 
 /**
  * PAdES Baseline LT signature

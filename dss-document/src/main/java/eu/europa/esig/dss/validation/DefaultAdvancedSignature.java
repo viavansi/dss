@@ -21,34 +21,27 @@
 package eu.europa.esig.dss.validation;
 
 import java.security.cert.X509CRL;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
+import eu.europa.esig.dss.*;
+import eu.europa.esig.dss.x509.*;
 import org.bouncycastle.cert.ocsp.BasicOCSPResp;
 import org.bouncycastle.cert.ocsp.OCSPResp;
 
-import eu.europa.esig.dss.DSSDocument;
-import eu.europa.esig.dss.DSSException;
-import eu.europa.esig.dss.DSSRevocationUtils;
-import eu.europa.esig.dss.DSSUtils;
-import eu.europa.esig.dss.DigestAlgorithm;
-import eu.europa.esig.dss.SignatureLevel;
 import eu.europa.esig.dss.utils.Utils;
-import eu.europa.esig.dss.x509.CertificatePool;
-import eu.europa.esig.dss.x509.CertificateToken;
-import eu.europa.esig.dss.x509.RevocationOrigin;
-import eu.europa.esig.dss.x509.RevocationToken;
-import eu.europa.esig.dss.x509.SignaturePolicy;
 import eu.europa.esig.dss.x509.crl.CRLToken;
 import eu.europa.esig.dss.x509.crl.ListCRLSource;
 import eu.europa.esig.dss.x509.crl.OfflineCRLSource;
 import eu.europa.esig.dss.x509.ocsp.ListOCSPSource;
 import eu.europa.esig.dss.x509.ocsp.OCSPToken;
 import eu.europa.esig.dss.x509.ocsp.OfflineOCSPSource;
+import org.bouncycastle.jce.provider.X509CertificateObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class DefaultAdvancedSignature implements AdvancedSignature {
+
+	private static final Logger logger = LoggerFactory.getLogger(DefaultAdvancedSignature.class);
 
 	/**
 	 * This is the reference to the global (external) pool of certificates. All encapsulated certificates in the
@@ -185,13 +178,12 @@ public abstract class DefaultAdvancedSignature implements AdvancedSignature {
 		final ValidationContext validationContext = new SignatureValidationContext();
 		final List<CertificateToken> certificates = getCertificates();
 		for (final CertificateToken certificate : certificates) {
-
 			validationContext.addCertificateTokenForVerification(certificate);
 		}
 		prepareTimestamps(validationContext);
 		certificateVerifier.setSignatureCRLSource(new ListCRLSource(getCRLSource()));
 		certificateVerifier.setSignatureOCSPSource(new ListOCSPSource(getOCSPSource()));
-		// certificateVerifier.setAdjunctCertSource(getCertificateSource());
+		//certificateVerifier.setAdjunctCertSource(getCertificateSource());
 		validationContext.initialize(certificateVerifier);
 		validationContext.validate();
 		return validationContext;
@@ -239,6 +231,44 @@ public abstract class DefaultAdvancedSignature implements AdvancedSignature {
 			certWithinSignatures.addAll(timestampToken.getCertificates());
 		}
 		return certWithinSignatures;
+	}
+
+	public Map<String, List<CertificateToken>> getCertificatesWithinSignatureAndTimestamps(boolean skipLastArchiveTimestamp) {
+		Map<String, List<CertificateToken>> certificates = new HashMap<String, List<CertificateToken>>();
+		certificates.put(CertificateSourceType.SIGNATURE.name(), getCertificates());
+		int timestampCounter = 0;
+		for (final TimestampToken timestampToken : getContentTimestamps()) {
+			certificates.put(timestampToken.getTimeStampType().name() + timestampCounter++, timestampToken.getCertificates());
+		}
+		for (final TimestampToken timestampToken : getTimestampsX1()) {
+			certificates.put(timestampToken.getTimeStampType().name() + timestampCounter++, timestampToken.getCertificates());
+		}
+		for (final TimestampToken timestampToken : getTimestampsX2()) {
+			certificates.put(timestampToken.getTimeStampType().name() + timestampCounter++, timestampToken.getCertificates());
+		}
+		for (final TimestampToken timestampToken : getSignatureTimestamps()) {
+			certificates.put(timestampToken.getTimeStampType().name() + timestampCounter++, timestampToken.getCertificates());
+		}
+
+		List<TimestampToken> archiveTsps = getArchiveTimestamps();
+		if (skipLastArchiveTimestamp) {
+			archiveTsps = removeLastTimestamp(archiveTsps);
+		}
+		for (final TimestampToken timestampToken : archiveTsps) {
+			certificates.put(timestampToken.getTimeStampType().name() + timestampCounter++, timestampToken.getCertificates());
+		}
+
+		return certificates;
+	}
+
+	private List<TimestampToken> removeLastTimestamp(List<TimestampToken> timestamps) {
+		List<TimestampToken> tsps = new ArrayList<TimestampToken>();
+		Collections.copy(timestamps, tsps);
+		if (Utils.collectionSize(tsps) > 1) {
+			Collections.sort(tsps, new TimestampByGenerationTimeComparator());
+			tsps.remove(tsps.size() - 1);
+		}
+		return tsps;
 	}
 
 	/**
@@ -502,6 +532,87 @@ public abstract class DefaultAdvancedSignature implements AdvancedSignature {
 	@Override
 	public List<SignatureScope> getSignatureScopes() {
 		return signatureScopes;
+	}
+
+	/* Defines the level T */
+	public boolean hasTProfile() {
+		return Utils.isCollectionNotEmpty(getSignatureTimestamps());
+	}
+
+	/* Defines the level LT */
+	public boolean hasLTProfile() {
+		Map<String, List<CertificateToken>> certificateChains = getCertificatesWithinSignatureAndTimestamps(true);
+		boolean emptyOCSPs = Utils.isCollectionEmpty(getOCSPSource().getContainedOCSPResponses());
+		boolean emptyCRLs = Utils.isCollectionEmpty(getCRLSource().getContainedX509CRLs());
+
+		if (certificateChains.isEmpty() || (emptyOCSPs && emptyCRLs)) {
+			return false;
+		}
+
+		if (!isAllCertChainsHaveRevocationData(certificateChains)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private boolean isAllCertChainsHaveRevocationData(Map<String, List<CertificateToken>> certificateChains) {
+		for (Map.Entry<String, List<CertificateToken>> entryCertChain : certificateChains.entrySet()) {
+			logger.debug("Testing revocation data presence for certificates chain {}", entryCertChain.getKey());
+			if (!isAllCertsHaveRevocationData(entryCertChain.getValue())) {
+				logger.debug("Revocation data missing in certificate chain {}", entryCertChain.getKey());
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean isAllCertsHaveRevocationData(List<CertificateToken> certificates) {
+		for (CertificateToken certificateToken : certificates) {
+			if (!(certificateToken.getCertificate() instanceof X509CertificateObject)){
+				continue;
+			}
+			if (isRevocationDataNotRequired(certificateToken)) {
+				// TODO we suppose that the certificate chain is well ordered
+				// It returns true to avoid checking upper levels than trusted certificates (cross certification)
+				return true;
+			}
+			logger.error("Validate revocations of {}", certificateToken.getSubjectX500Principal().toString());
+			Set<RevocationToken> revocationData = certificateToken.getRevocationTokens();
+			if (Utils.isCollectionEmpty(revocationData)) {
+				logger.error("Validate revocations of empty {}", certificateToken.getSubjectX500Principal().toString());
+				return false;
+			} else {
+				boolean foundInSignature = false;
+				for (RevocationToken revocationToken : revocationData) {
+					if (RevocationOrigin.SIGNATURE == revocationToken.getOrigin()) {
+						foundInSignature = true;
+					}
+				}
+				if (!foundInSignature) {
+					logger.error("Validate revocations of not found {}", certificateToken.getSubjectX500Principal().toString());
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	private boolean isRevocationDataNotRequired(CertificateToken certificateToken) {
+		if (certificateToken.isTrusted() || certificateToken.isSelfSigned() ) {
+			return true;
+		}
+
+		if (DSSASN1Utils.hasIdPkixOcspNoCheckExtension(certificateToken)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/* Defines the level LTA */
+	public boolean hasLTAProfile() {
+		return Utils.isCollectionNotEmpty(getArchiveTimestamps());
 	}
 
 }

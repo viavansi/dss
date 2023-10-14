@@ -20,16 +20,21 @@
  */
 package eu.europa.esig.dss.pades.signature;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import eu.europa.esig.dss.DSSDocument;
 import eu.europa.esig.dss.DSSException;
 import eu.europa.esig.dss.SignatureLevel;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
+import eu.europa.esig.dss.pades.validation.PAdESSignature;
 import eu.europa.esig.dss.pades.validation.PDFDocumentValidator;
+import eu.europa.esig.dss.pdf.DSSDictionaryCallback;
 import eu.europa.esig.dss.signature.SignatureExtension;
-import eu.europa.esig.dss.validation.AdvancedSignature;
-import eu.europa.esig.dss.validation.CertificateVerifier;
+import eu.europa.esig.dss.validation.*;
+import eu.europa.esig.dss.x509.CertificateToken;
 import eu.europa.esig.dss.x509.tsp.TSPSource;
 
 /**
@@ -55,6 +60,10 @@ class PAdESLevelBaselineLTA implements SignatureExtension<PAdESSignatureParamete
 		pdfDocumentValidator.setCertificateVerifier(certificateVerifier);
 
 		List<AdvancedSignature> signatures = pdfDocumentValidator.getSignatures();
+		//final ValidationContext validationContext = new SignatureValidationContext(certificateVerifier.createValidationPool());
+		//List<AdvancedSignature> signatures = pdfDocumentValidator.processSignaturesValidation(validationContext, false);
+
+		// create DSS dictionary
 		for (final AdvancedSignature signature : signatures) {
 			if (!signature.isDataForSignatureLevelPresent(SignatureLevel.PAdES_BASELINE_LT)) {
 				document = padesLevelBaselineLT.extendSignatures(document, parameters);
@@ -64,5 +73,21 @@ class PAdESLevelBaselineLTA implements SignatureExtension<PAdESSignatureParamete
 
 		// Will add a Document TimeStamp (not CMS)
 		return padesLevelBaselineT.extendSignatures(document, parameters);
+	}
+
+	private DSSDictionaryCallback validate(PAdESSignature signature) {
+
+		ValidationContext validationContext = signature.getSignatureValidationContext(certificateVerifier);
+		DefaultAdvancedSignature.RevocationDataForInclusion revocationsForInclusionInProfileLT = signature.getRevocationDataForInclusion(validationContext);
+
+		DSSDictionaryCallback validationCallback = new DSSDictionaryCallback();
+		validationCallback.setSignature(signature);
+		validationCallback.setCrls(revocationsForInclusionInProfileLT.crlTokens);
+		validationCallback.setOcsps(revocationsForInclusionInProfileLT.ocspTokens);
+
+		Set<CertificateToken> certs = new HashSet<>(signature.getCertificates());
+		validationCallback.setCertificates(certs);
+
+		return validationCallback;
 	}
 }

@@ -1,9 +1,6 @@
 package eu.europa.esig.dss;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -462,6 +459,26 @@ public final class DomUtils {
 		} catch (Exception e) {
 			throw new DSSException(e);
 		}
+	}
+
+	/**
+	 * This method creates a new InMemoryDocument with the {@link org.w3c.dom.Document} content and the given name
+	 *
+	 * @param document
+	 *            the {@link org.w3c.dom.Document} to store
+	 * @param name
+	 *            the ouput filename
+	 * @return a new instance of InMemoryDocument with the XML and the given filename
+	 */
+	public static DSSDocument createDssDocumentFromDomDocument(Document document, String name) {
+		DSSDocument dssDoc = null;
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+			DomUtils.writeDocumentTo(document, baos);
+			dssDoc = new InMemoryDocument(baos.toByteArray(), name, MimeType.XML);
+		} catch (IOException e) {
+			throw new DSSException(e);
+		}
+		return dssDoc;
 	}
 
 	/**

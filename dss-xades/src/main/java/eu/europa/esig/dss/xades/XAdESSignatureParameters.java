@@ -43,6 +43,11 @@ public class XAdESSignatureParameters extends AbstractSignatureParameters {
 
 	private String toCounterSignSignatureValueId;
 
+	/**
+	 * This parameter allows to produce Manifest signature (https://www.w3.org/TR/xmldsig-core/#sec-o-Manifest).
+	 */
+	private boolean manifestSignature;
+
 	@Override
 	public void setSignatureLevel(SignatureLevel signatureLevel) {
 		if (signatureLevel == null || SignatureForm.XAdES != signatureLevel.getSignatureForm()) {
@@ -165,5 +170,13 @@ public class XAdESSignatureParameters extends AbstractSignatureParameters {
 
 	public void setToCounterSignSignatureValueId(String toCounterSignSignatureValueId) {
 		this.toCounterSignSignatureValueId = toCounterSignSignatureValueId;
+	}
+
+	public boolean isManifestSignature() {
+		return manifestSignature;
+	}
+
+	public void setManifestSignature(boolean manifestSignature) {
+		this.manifestSignature = manifestSignature;
 	}
 }

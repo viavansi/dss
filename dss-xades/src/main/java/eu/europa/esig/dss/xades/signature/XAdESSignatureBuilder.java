@@ -462,7 +462,7 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
         if (LOG.isTraceEnabled()) {
             LOG.trace("Reference canonicalization method  -->" + signedInfoCanonicalizationMethod);
         }
-        incorporateDigestValue(referenceDom, digestAlgorithm, canonicalizedDocument);
+        incorporateDigestValue(referenceDom, dssReference, digestAlgorithm, canonicalizedDocument);
     }
 
     static void createTransform(final Document document, final DSSTransform dssTransform, final Element transformDom) {

@@ -77,6 +77,7 @@ public abstract class XAdESBuilder {
 	public static final String DS_X509_ISSUER_NAME = "ds:X509IssuerName";
 	public static final String DS_X509_SERIAL_NUMBER = "ds:X509SerialNumber";
 	public static final String DS_XPATH = "ds:XPath";
+	public static final String DS_MANIFEST = "ds:Manifest";
 
 	public static final String XADES_ALL_DATA_OBJECTS_TIME_STAMP = "xades:AllDataObjectsTimeStamp";
 	public static final String XADES_ALL_SIGNED_DATA_OBJECTS = "xades:AllSignedDataObjects";
@@ -146,6 +147,7 @@ public abstract class XAdESBuilder {
 	public static final String XMLNS_XADES = "xmlns:xades";
 
 	public static final String HTTP_WWW_W3_ORG_2000_09_XMLDSIG_OBJECT = "http://www.w3.org/2000/09/xmldsig#Object";
+	public static final String HTTP_WWW_W3_ORG_2000_09_XMLDSIG_MANIFEST = "http://www.w3.org/2000/09/xmldsig#Manifest";
 	/**
 	 * This XPath filter allows to remove all ds:Signature elements from the XML
 	 */
@@ -211,6 +213,70 @@ public abstract class XAdESBuilder {
 		final String digestAlgorithmXmlId = digestAlgorithm.getXmlId();
 		digestMethodDom.setAttribute(ALGORITHM, digestAlgorithmXmlId);
 		parentDom.appendChild(digestMethodDom);
+	}
+
+	/**
+	 * This method creates the ds:DigestValue DOM object.
+	 *
+	 * <pre>
+	 * {@code
+	 * 		<ds:DigestValue>fj8SJujSXU4fi342bdtiKVbglA0=</ds:DigestValue>
+	 * }
+	 * </pre>
+	 *
+	 * @param parentDom
+	 *            the parent element
+	 * @param dssReference
+	 *            the current reference to incorporate
+	 * @param digestAlgorithm
+	 *            the digest algorithm to be used
+	 * @param originalDocument
+	 *            the document to be digested
+	 */
+	protected void incorporateDigestValue(final Element parentDom, DSSReference dssReference, final DigestAlgorithm digestAlgorithm, final DSSDocument originalDocument) {
+
+		final Element digestValueDom = documentDom.createElementNS(XMLNS, DS_DIGEST_VALUE);
+
+		String base64EncodedDigestBytes = null;
+		if (params.isManifestSignature()) {
+			DSSTransform dssTransform = getUniqueTransformation(dssReference);
+			Document doc = DomUtils.buildDOM(originalDocument);
+			byte[] bytes = DSSXMLUtils.canonicalizeSubtree(dssTransform.getAlgorithm(), doc);
+			base64EncodedDigestBytes = Utils.toBase64(DSSUtils.digest(digestAlgorithm, bytes));
+		} else if (params.isEmbedXML()) {
+			DSSTransform dssTransform = getUniqueTransformation(dssReference);
+
+			Document doc = DomUtils.buildDOM(originalDocument);
+			Element root = doc.getDocumentElement();
+
+			Document doc2 = DomUtils.buildDOM();
+			final Element dom = doc2.createElementNS(XMLSignature.XMLNS, DS_OBJECT);
+			final Element dom2 = doc2.createElementNS(XMLSignature.XMLNS, DS_OBJECT);
+			doc2.appendChild(dom2);
+			dom2.appendChild(dom);
+			dom.setAttribute(ID, dssReference.getUri().substring(1));
+
+			Node adopted = doc2.adoptNode(root);
+			dom.appendChild(adopted);
+
+			byte[] bytes = DSSXMLUtils.canonicalizeSubtree(dssTransform.getAlgorithm(), dom);
+			base64EncodedDigestBytes = Utils.toBase64(DSSUtils.digest(digestAlgorithm, bytes));
+		} else {
+			base64EncodedDigestBytes = originalDocument.getDigest(digestAlgorithm);
+		}
+
+		LOG.trace("C14n Digest value {} --> {}", parentDom.getNodeName(), base64EncodedDigestBytes);
+		final Text textNode = documentDom.createTextNode(base64EncodedDigestBytes);
+		digestValueDom.appendChild(textNode);
+		parentDom.appendChild(digestValueDom);
+	}
+
+	private DSSTransform getUniqueTransformation(DSSReference dssReference) {
+		List<DSSTransform> transforms = dssReference.getTransforms();
+		if (Utils.collectionSize(transforms) != 1) {
+			throw new DSSException("Only one transformation is supported");
+		}
+		return transforms.get(0);
 	}
 
 	/**

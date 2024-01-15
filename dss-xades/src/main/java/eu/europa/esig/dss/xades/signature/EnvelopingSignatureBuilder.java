@@ -27,10 +27,7 @@ import javax.xml.crypto.dsig.CanonicalizationMethod;
 import javax.xml.crypto.dsig.XMLSignature;
 
 import org.apache.xml.security.c14n.Canonicalizer;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.Text;
+import org.w3c.dom.*;
 
 import eu.europa.esig.dss.DSSDocument;
 import eu.europa.esig.dss.DSSException;
@@ -78,7 +75,15 @@ class EnvelopingSignatureBuilder extends XAdESSignatureBuilder {
 		reference.setUri("#o-id-" + referenceIndex);
 		reference.setContents(document);
 		reference.setDigestMethodAlgorithm(params.getDigestAlgorithm());
-		if (reference.getContents().getMimeType() == MimeType.XML && params.isEmbedXML()) {
+		if (params.isManifestSignature()) {
+			reference.setType(HTTP_WWW_W3_ORG_2000_09_XMLDSIG_MANIFEST);
+			Document manifestDoc = DomUtils.buildDOM(document);
+			Element manifestElement = manifestDoc.getDocumentElement();
+			reference.setUri("#" + manifestElement.getAttribute(ID));
+			DSSTransform xmlTransform = new DSSTransform();
+			xmlTransform.setAlgorithm(Canonicalizer.ALGO_ID_C14N11_OMIT_COMMENTS);
+			reference.setTransforms(Arrays.asList(xmlTransform));
+		} else if (reference.getContents().getMimeType() == MimeType.XML && params.isEmbedXML()) {
 			DSSTransform xmlTransform = new DSSTransform();
 			xmlTransform.setAlgorithm(Canonicalizer.ALGO_ID_C14N_OMIT_COMMENTS);
 			reference.setTransforms(Arrays.asList(xmlTransform));
@@ -120,7 +125,25 @@ class EnvelopingSignatureBuilder extends XAdESSignatureBuilder {
 			final String id = reference.getUri().substring(1);
 			// <ds:Object>
 			DSSDocument tbsDoc = reference.getContents();
-			if (tbsDoc.getMimeType() == MimeType.XML && params.isEmbedXML()) {
+			if (params.isManifestSignature()) {
+
+				Document doc = DomUtils.buildDOM(reference.getContents());
+				Element root = doc.getDocumentElement();
+				NodeList referencesNodes = root.getChildNodes();
+				String idAttribute = root.getAttribute(ID);
+
+				// rebuild manifest element to avoid namespace duplication
+				final Element manifestDom = documentDom.createElementNS(XMLSignature.XMLNS, DS_MANIFEST);
+				manifestDom.setAttribute(ID, idAttribute);
+				for (int i = 0; i < referencesNodes.getLength(); i++) {
+					Node copyNode = documentDom.importNode(referencesNodes.item(i), true);
+					manifestDom.appendChild(copyNode);
+				}
+
+				final Element dom = documentDom.createElementNS(XMLSignature.XMLNS, DS_OBJECT);
+				dom.appendChild(manifestDom);
+				signatureDom.appendChild(dom);
+			} else if (tbsDoc.getMimeType() == MimeType.XML && params.isEmbedXML()) {
 				try {
 					Document doc = DomUtils.buildDOM(reference.getContents().openStream());
 					Element root = doc.getDocumentElement();

@@ -233,8 +233,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
         }
     }
 
-    private void stampSignedDocument(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties,
-                                     SignatureImageParameters imageParameters) throws IOException {
+    private void stampSignedDocument(PDDocument document, final PAdESSignatureParameters pAdESSignatureParameters, SignatureOptions signatureOptions, PDVisibleSigProperties pdVisibleSigProperties, SignatureImageParameters imageParameters) throws IOException {
+
+        ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
+        PDImageXObject pdImageXObject;
+        try (InputStream is = ires.getInputStream()) {
+            pdImageXObject = PDImageXObject.createFromByteArray(document, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
+        }
 
         for (int i = 0; i < document.getNumberOfPages(); i++) {
             //if (signatureOptions.getPage() != i) {
@@ -250,25 +255,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 }
             }
 
-            ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
-            PDImageXObject pdImageXObject;
-            try (InputStream is = ires.getInputStream()) {
-                pdImageXObject = PDImageXObject.createFromByteArray(document, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
-            }
-
             // stamp
             PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
-            PDAnnotationLink link = new PDAnnotationLink();
             stamp.setName(pAdESSignatureParameters.getReason());
             stamp.setContents(null);
             stamp.setLocked(true);
             stamp.setReadOnly(true);
             stamp.setPrinted(true);
-
-            // add an action
-            PDActionURI action = new PDActionURI();
-            action.setURI(pAdESSignatureParameters.getLink());
-            link.setAction(action);
 
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
@@ -321,7 +314,6 @@ class PdfBoxSignatureService implements PDFSignatureService {
             appearance.setNormalAppearance(appearanceStream);
             stamp.setAppearance(appearance);
             stamp.setRectangle(rectangle);
-            link.setRectangle(rectangle);
             PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
 
             AffineTransform affineTransform;
@@ -338,6 +330,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
             // close and save
             annotations.add(stamp);
             if(pAdESSignatureParameters.getLink()!=null) {
+                // add an action
+                PDActionURI action = new PDActionURI();
+                action.setURI(pAdESSignatureParameters.getLink());
+                PDAnnotationLink link = new PDAnnotationLink();
+                link.setRectangle(rectangle);
+                link.setAction(action);
                 annotations.add(link);
             }
             appearanceStream.getCOSObject().setNeedToBeUpdated(true);

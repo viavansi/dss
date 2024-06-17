@@ -318,29 +318,29 @@ public abstract class XAdESSignatureBuilder extends XAdESBuilder implements Sign
             */
         }
 
+        if (params.getToCounterSignSignatureValueId() == null) {
+            String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+            final Element reference = DomUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
+            reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
+            // <ds:Transforms>
+            final Element transforms = DomUtils.addElement(documentDom, reference, XMLNS, DS_TRANSFORMS);
+            // <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+            final Element transform = DomUtils.addElement(documentDom, transforms, XMLNS, DS_TRANSFORM);
+            transform.setAttribute(ALGORITHM, keyInfoCanonicalizationMethod);
+            // </ds:Transforms>
 
-        String keyInfoCanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-        final Element reference = DomUtils.addElement(documentDom, signedInfoDom, XMLNS, DS_REFERENCE);
-        reference.setAttribute(URI, "#KeyInfo-" + deterministicId);
-        // <ds:Transforms>
-        final Element transforms = DomUtils.addElement(documentDom, reference, XMLNS, DS_TRANSFORMS);
-        // <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-        final Element transform = DomUtils.addElement(documentDom, transforms, XMLNS, DS_TRANSFORM);
-        transform.setAttribute(ALGORITHM, keyInfoCanonicalizationMethod);
-        // </ds:Transforms>
+            // <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+            final DigestAlgorithm digestAlgorithm = params.getDigestAlgorithm();
+            incorporateDigestMethod(reference, digestAlgorithm);
 
-        // <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-        final DigestAlgorithm digestAlgorithm = params.getDigestAlgorithm();
-        incorporateDigestMethod(reference, digestAlgorithm);
-
-        // <ds:DigestValue>b/JEDQH2S1Nfe4Z3GSVtObN34aVB1kMrEbVQZswThfQ=</ds:DigestValue>
-        final byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(keyInfoCanonicalizationMethod, keyInfoDom);
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("Canonicalization method  --> {}", keyInfoCanonicalizationMethod);
-            LOG.trace("Canonicalised REF_2      --> {}", new String(canonicalizedBytes));
+            // <ds:DigestValue>b/JEDQH2S1Nfe4Z3GSVtObN34aVB1kMrEbVQZswThfQ=</ds:DigestValue>
+            final byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(keyInfoCanonicalizationMethod, keyInfoDom);
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("Canonicalization method  --> {}", keyInfoCanonicalizationMethod);
+                LOG.trace("Canonicalised REF_2      --> {}", new String(canonicalizedBytes));
+            }
+            incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
         }
-        incorporateDigestValue(reference, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
-
 
     }
 

@@ -22,16 +22,13 @@ package eu.europa.esig.dss.pades.signature;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import eu.europa.esig.dss.DSSDocument;
-import eu.europa.esig.dss.DSSException;
-import eu.europa.esig.dss.InMemoryDocument;
-import eu.europa.esig.dss.MimeType;
-import eu.europa.esig.dss.SignatureLevel;
+import eu.europa.esig.dss.*;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
 import eu.europa.esig.dss.pades.validation.PAdESSignature;
 import eu.europa.esig.dss.pades.validation.PDFDocumentValidator;
@@ -43,6 +40,7 @@ import eu.europa.esig.dss.validation.AdvancedSignature;
 import eu.europa.esig.dss.validation.CertificateVerifier;
 import eu.europa.esig.dss.validation.DefaultAdvancedSignature;
 import eu.europa.esig.dss.validation.ValidationContext;
+import eu.europa.esig.dss.x509.CertificatePool;
 import eu.europa.esig.dss.x509.CertificateToken;
 import eu.europa.esig.dss.x509.tsp.TSPSource;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -118,8 +116,40 @@ class PAdESLevelBaselineLT implements SignatureExtension<PAdESSignatureParameter
 
 		Set<CertificateToken> certs = new HashSet<>(signature.getCertificates());
 		validationCallback.setCertificates(certs);
+		validationCallback.getCertificates().addAll(loadCertificateChain(signature.getSigningCertificateToken(), certificateVerifier));
 
 		return validationCallback;
+	}
+
+	public static List<CertificateToken> loadCertificateChain(CertificateToken token, CertificateVerifier certificateVerifier) {
+		List<CertificateToken> result = new ArrayList<>();
+		CertificateToken issuer = null;
+		while (token != null) {
+			issuer = loadCertificateFromPool(certificateVerifier, token);
+			if (issuer != null) {
+				result.add(issuer);
+				if (issuer.isSelfSigned() || issuer.isTrusted()) {
+					token = null;
+				} else {
+					token = issuer;
+				}
+			} else {
+				token = null;
+			}
+		}
+		return result;
+	}
+
+	private static CertificateToken loadCertificateFromPool(CertificateVerifier certificateVerifier, CertificateToken token) {
+		CertificatePool validationPool = certificateVerifier.createValidationPool();
+		final List<CertificateToken> issuerCertList = validationPool.get(token.getIssuerX500Principal());
+		for (final CertificateToken issuerCertToken : issuerCertList) {
+			// We keep the first issuer that signs the certificate
+			if (token.isSignedBy(issuerCertToken)) {
+				return issuerCertToken;
+			}
+		}
+		return null;
 	}
 
 }

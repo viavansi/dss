@@ -44,7 +44,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +51,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
+import eu.europa.esig.dss.DigestDocument;
+import eu.europa.esig.dss.InMemoryDocument;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
@@ -102,6 +103,7 @@ import org.bouncycastle.asn1.x509.IssuerSerial;
 import org.bouncycastle.asn1.x509.RoleSyntax;
 import org.bouncycastle.asn1.x509.Time;
 import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cms.CMSAbsentContent;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataParser;
@@ -219,7 +221,7 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 	 *            can be null
 	 */
 	public CAdESSignature(final CMSSignedData cms, final CertificatePool certPool) {
-		this(cms, getFirstSignerInformation(cms), certPool);
+		this(cms,  DSSASN1Utils.getFirstSignerInformation(cms), certPool);
 	}
 
 	public CAdESSignature(final CMSSignedData cms, final CertificatePool certPool, List<DSSDocument> detachedContents) {
@@ -1160,10 +1162,16 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 	private SignerInformation recreateSignerInformation() throws CMSException, IOException {
 
 		final DSSDocument dssDocument = detachedContents.get(0); // only one element for CAdES Signature
-		final InputStream inputStream = dssDocument.openStream();
-		final CMSTypedStream signedContent = new CMSTypedStream(inputStream);
-		final CMSSignedDataParser cmsSignedDataParser = new CMSSignedDataParser(new BcDigestCalculatorProvider(), signedContent, cmsSignedData.getEncoded());
-		cmsSignedDataParser.getSignedContent().drain(); // Closes the stream
+		CMSSignedDataParser cmsSignedDataParser;
+		if (dssDocument instanceof DigestDocument) {
+			cmsSignedDataParser = new CMSSignedDataParser(new PrecomputedDigestCalculatorProvider((DigestDocument) dssDocument), cmsSignedData.getEncoded());
+		} else {
+			try (InputStream inputStream = dssDocument.openStream()) {
+				final CMSTypedStream signedContent = new CMSTypedStream(inputStream);
+				cmsSignedDataParser = new CMSSignedDataParser(new BcDigestCalculatorProvider(), signedContent, cmsSignedData.getEncoded());
+				cmsSignedDataParser.getSignedContent().drain(); // Closes the stream
+			}
+		}
 		final SignerId signerId = signerInformation.getSID();
 		final SignerInformation signerInformationToCheck = cmsSignedDataParser.getSignerInfos().get(signerId);
 		return signerInformationToCheck;
@@ -1481,11 +1489,16 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 
 		final CadesLevelBaselineLTATimestampExtractor timestampExtractor = new CadesLevelBaselineLTATimestampExtractor(this);
 		final Attribute atsHashIndexAttribute = timestampExtractor.getVerifiedAtsHashIndex(signerInformation, timestampToken);
-
-		InputStream originalDocumentBytes = getOriginalDocumentStream();
+		DSSDocument originalDocument = CMSUtils.getOriginalDocument(cmsSignedData, detachedContents);
 		final DigestAlgorithm signedDataDigestAlgorithm = timestampToken.getSignedDataDigestAlgo();
-		byte[] archiveTimestampData = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, originalDocumentBytes,
-				signedDataDigestAlgorithm);
+		byte[] archiveTimestampData;
+		if(originalDocument instanceof DigestDocument){
+			archiveTimestampData = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, (DigestDocument)originalDocument,
+					signedDataDigestAlgorithm);
+		}else{
+			archiveTimestampData = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, originalDocument.openStream(),
+					signedDataDigestAlgorithm);
+		}
 		return archiveTimestampData;
 	}
 

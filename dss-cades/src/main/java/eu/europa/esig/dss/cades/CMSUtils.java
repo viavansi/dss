@@ -3,7 +3,13 @@ package eu.europa.esig.dss.cades;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Hashtable;
+import java.util.List;
 
+import eu.europa.esig.dss.DSSDocument;
+import eu.europa.esig.dss.DSSUtils;
+import eu.europa.esig.dss.DigestDocument;
+import eu.europa.esig.dss.InMemoryDocument;
+import eu.europa.esig.dss.utils.Utils;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.DERSequence;
@@ -15,6 +21,7 @@ import org.bouncycastle.asn1.ocsp.OCSPResponse;
 import org.bouncycastle.cert.ocsp.BasicOCSPResp;
 import org.bouncycastle.cert.ocsp.OCSPException;
 import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cms.CMSAbsentContent;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
@@ -63,6 +70,23 @@ public final class CMSUtils {
 		try {
 			final CMSSignedData cmsSignedData = generator.generate(content, encapsulate);
 			return cmsSignedData;
+		} catch (CMSException e) {
+			throw new DSSException(e);
+		}
+	}
+
+	/**
+	 * This method generate {@code CMSSignedData} using the provided #{@code CMSSignedDataGenerator}, the content and
+	 * the indication if the content should be encapsulated.
+	 *
+	 * @param generator
+	 * @param content
+	 * @param encapsulate
+	 * @return
+	 */
+	public static CMSSignedData generateCMSSignedData(final CMSSignedDataGenerator generator, final CMSTypedData content, final boolean encapsulate) {
+		try {
+			return generator.generate(content, encapsulate);
 		} catch (CMSException e) {
 			throw new DSSException(e);
 		}
@@ -195,6 +219,61 @@ public final class CMSUtils {
 			logger.error("Impossible to process OCSPResp!", e);
 		}
 		return basicOCSPResp;
+	}
+	/**
+	 * Checks if the signature is detached
+	 * @param cmsSignedData {@link CMSSignedData}
+	 * @return TRUE if the signature is detached, FALSE otherwise
+	 */
+	public static boolean isDetachedSignature(CMSSignedData cmsSignedData) {
+		return cmsSignedData.isDetachedSignature();
+	}
+
+	/**
+	 * Returns the original document from the provided {@code cmsSignedData}
+	 * @param cmsSignedData {@link CMSSignedData} to get original document from
+	 * @return original {@link DSSDocument}
+	 */
+	public static DSSDocument getOriginalDocument(CMSSignedData cmsSignedData, List<DSSDocument> detachedDocuments) {
+		CMSTypedData signedContent = null;
+		if (cmsSignedData != null) {
+			signedContent = cmsSignedData.getSignedContent();
+		}
+		if (signedContent != null && !(signedContent instanceof CMSAbsentContent)) {
+			return new InMemoryDocument(CMSUtils.getSignedContent(signedContent));
+		} else if (Utils.collectionSize(detachedDocuments) == 1) {
+			return detachedDocuments.get(0);
+		} else {
+			throw new DSSException("Only enveloping and detached signatures are supported");
+		}
+	}
+
+
+	public static DSSDocument getOriginalDocumentWithParameters(CMSSignedData cmsSignedData, CAdESSignatureParameters parameters) throws DSSException {
+
+		CMSTypedData signedContent = null;
+		if (cmsSignedData != null) {
+			signedContent = cmsSignedData.getSignedContent();
+		}
+		if (signedContent != null && !(signedContent instanceof CMSAbsentContent)) {
+			return new InMemoryDocument(CMSUtils.getSignedContent(signedContent));
+		}
+
+		final List<DSSDocument> detachedContents = parameters.getDetachedContents();
+		if (detachedContents == null) {
+			throw new DSSException("In the case of detached signature the detached content must be set!");
+		}
+		return detachedContents.get(0);
+	}
+
+	public static CMSTypedData getContentToBeSign(final DSSDocument toSignData) {
+		CMSTypedData content = null;
+		if (toSignData instanceof DigestDocument) {
+			content = new CMSAbsentContent();
+		} else {
+			content = new CMSProcessableByteArray(DSSUtils.toByteArray(toSignData));
+		}
+		return content;
 	}
 
 }

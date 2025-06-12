@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import eu.europa.esig.dss.DigestDocument;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Integer;
@@ -522,6 +523,31 @@ public class CadesLevelBaselineLTATimestampExtractor {
 		final CMSSignedData cmsSignedData = cadesSignature.getCmsSignedData();
 		final byte[] encodedContentType = getEncodedContentType(cmsSignedData); // OID
 		final byte[] signedDataDigest = DSSUtils.digest(digestAlgorithm, originalDocument);
+		final byte[] encodedFields = getSignedFields(signerInformation);
+		final byte[] encodedAtsHashIndex = DSSASN1Utils.getDEREncoded(atsHashIndexAttribute.getAttrValues().getObjectAt(0));
+		/**
+		 * The input for the archive-time-stamp-v3’s message imprint computation shall be the concatenation (in the
+		 * order shown by the list below) of the signed data hash (see bullet 2 below) and certain fields in their
+		 * binary encoded
+		 * form without any modification and including the tag, length and value octets:
+		 */
+		final byte[] dataToTimestamp = DSSUtils.concatenate(encodedContentType, signedDataDigest, encodedFields, encodedAtsHashIndex);
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("eContentType={}", Utils.toHex(encodedContentType));
+			LOG.debug("signedDataDigest={}", Utils.toHex(signedDataDigest));
+			LOG.debug("encodedFields=see above");
+			LOG.debug("encodedAtsHashIndex={}", Utils.toHex(encodedAtsHashIndex));
+			// LOG.debug("Archive Timestamp Data v3 is: {}", Hex.encodeHexString(dataToTimestamp));
+		}
+		return dataToTimestamp;
+	}
+
+	public byte[] getArchiveTimestampDataV3(SignerInformation signerInformation, Attribute atsHashIndexAttribute, DigestDocument originalDocument,
+			DigestAlgorithm digestAlgorithm) throws DSSException {
+
+		final CMSSignedData cmsSignedData = cadesSignature.getCmsSignedData();
+		final byte[] encodedContentType = getEncodedContentType(cmsSignedData); // OID
+		final byte[] signedDataDigest = Utils.fromBase64(originalDocument.getDigest(digestAlgorithm));
 		final byte[] encodedFields = getSignedFields(signerInformation);
 		final byte[] encodedAtsHashIndex = DSSASN1Utils.getDEREncoded(atsHashIndexAttribute.getAttrValues().getObjectAt(0));
 		/**

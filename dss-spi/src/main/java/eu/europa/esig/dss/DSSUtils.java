@@ -60,6 +60,8 @@ import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
 import org.bouncycastle.cert.ocsp.BasicOCSPResp;
 import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -288,7 +290,7 @@ public final class DSSUtils {
 	/**
 	 * This method converts a PEM encoded crl to DER encoded
 	 * 
-	 * @param pemCert
+	 * @param pemCRL
 	 *            the String which contains the PEM encoded CRL
 	 * @return the binaries of the DER encoded crl
 	 */
@@ -1307,5 +1309,60 @@ public final class DSSUtils {
 		}
 		return uri;
 	}
+
+    /**
+     * Reads the first byte from the DSSDocument
+     *
+     * @param dssDocument
+     *            the document
+     * @return the first byte
+     */
+    public static byte readFirstByte(final DSSDocument dssDocument) {
+        byte[] result = new byte[1];
+        try (InputStream inputStream = dssDocument.openStream()) {
+            inputStream.read(result, 0, 1);
+        } catch (IOException e) {
+            throw new DSSException(String.format("Cannot read first byte of the document. Reason : %s", e.getMessage()), e);
+        }
+        return result[0];
+    }
+
+    /**
+     * Gets CMSSignedData from the {@code InputStream}
+     *
+     * @param inputStream {@link InputStream} contained CMSSignedData
+     * @return {@link CMSSignedData}
+     */
+    public static CMSSignedData toCMSSignedData(final InputStream inputStream) {
+        try (InputStream is = inputStream) {
+            return new CMSSignedData(is);
+        } catch (IOException | CMSException e) {
+            throw new DSSException("Not a valid CAdES file", e);
+        }
+    }
+
+    /**
+     * Gets CMSSignedData from the {@code document} bytes
+     *
+     * @param document {@link DSSDocument} contained CMSSignedData
+     * @return {@link CMSSignedData}
+     */
+    public static CMSSignedData toCMSSignedData(final DSSDocument document) {
+        return toCMSSignedData(document.openStream());
+    }
+
+    /**
+     * Creates {@code CMSSignedData} from the DER-encoded binaries representing CMS
+     *
+     * @param encoded byte array representing CMSSignedData
+     * @return {@link CMSSignedData}
+     */
+    public static CMSSignedData toCMSSignedData(final byte[] encoded) {
+        try {
+            return new CMSSignedData(encoded);
+        } catch (CMSException e) {
+            throw new DSSException("Not a valid CMS", e);
+        }
+    }
 
 }

@@ -23,7 +23,6 @@ package eu.europa.esig.dss.cades.signature;
 import static org.bouncycastle.asn1.cms.CMSObjectIdentifiers.id_ri_ocsp_response;
 import static org.bouncycastle.asn1.ocsp.OCSPObjectIdentifiers.id_pkix_ocsp_basic;
 
-import java.io.InputStream;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -34,13 +33,14 @@ import java.util.Set;
 
 import javax.security.auth.x500.X500Principal;
 
+import eu.europa.esig.dss.cades.CMSUtils;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSTypedData;
 import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
 import org.bouncycastle.cms.SignerInfoGenerator;
 import org.bouncycastle.cms.SignerInfoGeneratorBuilder;
@@ -288,9 +288,8 @@ public class CMSSignedDataBuilder {
 			if (!encapsulate) {
 				List<DSSDocument> detachedContents = parameters.getDetachedContents();
 				// CAdES can only sign one document
-				final InputStream inputStream = detachedContents.get(0).openStream();
-				final CMSProcessableByteArray content = new CMSProcessableByteArray(DSSUtils.toByteArray(inputStream));
-				Utils.closeQuietly(inputStream);
+				final DSSDocument doc = detachedContents.get(0);
+				final CMSTypedData content = CMSUtils.getContentToBeSign(doc);
 				cmsSignedData = cmsSignedDataGenerator.generate(content, encapsulate);
 			} else {
 				cmsSignedData = cmsSignedDataGenerator.generate(cmsSignedData.getSignedContent(), encapsulate);

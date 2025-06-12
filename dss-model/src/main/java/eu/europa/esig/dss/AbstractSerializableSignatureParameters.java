@@ -53,6 +53,11 @@ public abstract class AbstractSerializableSignatureParameters implements Seriali
 	private DigestAlgorithm digestAlgorithm = signatureAlgorithm.getDigestAlgorithm();
 
 	/**
+	 * XAdES: The digest algorithm used to hash ds:Reference.
+	 */
+	private DigestAlgorithm referenceDigestAlgorithm;
+
+	/**
 	 * The object representing the parameters related to B- level.
 	 */
 	private BLevelParameters bLevelParams = new BLevelParameters();
@@ -139,6 +144,19 @@ public abstract class AbstractSerializableSignatureParameters implements Seriali
 	}
 
 	/**
+	 * Get the digest algorithm for ds:Reference or message-digest attribute
+	 *
+	 * @return the digest algorithm for ds:Reference or message-digest attribute
+	 */
+	public DigestAlgorithm getReferenceDigestAlgorithm() {
+		return referenceDigestAlgorithm;
+	}
+
+	public void setReferenceDigestAlgorithm(DigestAlgorithm referenceDigestAlgorithm) {
+		this.referenceDigestAlgorithm = referenceDigestAlgorithm;
+	}
+
+	/**
 	 * This setter should be used only when dealing with web services (or when signing in three steps). Usually the
 	 * encryption algorithm is automatically extrapolated from the
 	 * private key.
@@ -220,7 +238,8 @@ public abstract class AbstractSerializableSignatureParameters implements Seriali
 	public String toString() {
 		return "SignatureParameters{" + "signWithExpiredCertificate=" + signWithExpiredCertificate + ", signatureLevel=" + signatureLevel
 				+ ", signaturePackaging=" + signaturePackaging + ", signatureAlgorithm=" + signatureAlgorithm + ", encryptionAlgorithm=" + encryptionAlgorithm
-				+ ", digestAlgorithm=" + digestAlgorithm + ", bLevelParams=" + bLevelParams
+				+ ", digestAlgorithm=" + digestAlgorithm + ", referenceDigestAlgorithm="
+				+ referenceDigestAlgorithm + ", bLevelParams=" + bLevelParams
 				+ ", signatureTimestampParameters=" + ((signatureTimestampParameters == null) ? null : signatureTimestampParameters.toString())
 				+ ", archiveTimestampParameters=" + ((archiveTimestampParameters == null) ? null : archiveTimestampParameters.toString()) + '}';
 	}
@@ -233,6 +252,7 @@ public abstract class AbstractSerializableSignatureParameters implements Seriali
 		result = (prime * result) + ((bLevelParams == null) ? 0 : bLevelParams.hashCode());
 		result = (prime * result) + ((contentTimestampParameters == null) ? 0 : contentTimestampParameters.hashCode());
 		result = (prime * result) + ((digestAlgorithm == null) ? 0 : digestAlgorithm.hashCode());
+		result = (prime * result) + ((referenceDigestAlgorithm == null) ? 0 : referenceDigestAlgorithm.hashCode());
 		result = (prime * result) + ((encryptionAlgorithm == null) ? 0 : encryptionAlgorithm.hashCode());
 		result = (prime * result) + (signWithExpiredCertificate ? 1231 : 1237);
 		result = (prime * result) + ((signatureAlgorithm == null) ? 0 : signatureAlgorithm.hashCode());
@@ -276,6 +296,9 @@ public abstract class AbstractSerializableSignatureParameters implements Seriali
 			return false;
 		}
 		if (digestAlgorithm != other.digestAlgorithm) {
+			return false;
+		}
+		if (referenceDigestAlgorithm != other.referenceDigestAlgorithm) {
 			return false;
 		}
 		if (encryptionAlgorithm != other.encryptionAlgorithm) {

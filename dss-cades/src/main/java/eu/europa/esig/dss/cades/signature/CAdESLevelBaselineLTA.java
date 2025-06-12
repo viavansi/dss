@@ -22,14 +22,20 @@ package eu.europa.esig.dss.cades.signature;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
+import eu.europa.esig.dss.DSSASN1Utils;
+import eu.europa.esig.dss.DigestDocument;
+import eu.europa.esig.dss.validation.TimeStampTokenProductionComparator;
 import org.bouncycastle.asn1.ASN1Object;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSTypedData;
 import org.bouncycastle.cms.SignerInformation;
+import org.bouncycastle.tsp.TimeStampToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +66,13 @@ public class CAdESLevelBaselineLTA extends CAdESSignatureExtension {
 
 	private final CAdESLevelBaselineLT cadesProfileLT;
 	private final CertificateVerifier certificateVerifier;
+	private static final List<ASN1ObjectIdentifier> archiveTimestampOIDs;
+
+	static {
+		archiveTimestampOIDs = new ArrayList<ASN1ObjectIdentifier>();
+		archiveTimestampOIDs.add(OID.id_aa_ets_archiveTimestampV2);
+		archiveTimestampOIDs.add(OID.id_aa_ets_archiveTimestampV3);
+	}
 
 	public CAdESLevelBaselineLTA(TSPSource signatureTsa, CertificateVerifier certificateVerifier, boolean onlyLastSigner) {
 		super(signatureTsa, onlyLastSigner);
@@ -69,8 +82,41 @@ public class CAdESLevelBaselineLTA extends CAdESSignatureExtension {
 
 	@Override
 	protected CMSSignedData preExtendCMSSignedData(CMSSignedData cmsSignedData, CAdESSignatureParameters parameters) {
-		return cadesProfileLT.extendCMSSignatures(cmsSignedData, parameters);
+		/*
+		 * As defined in ETSI EN 319 122-1 V1.1.1 (2016-04), chapter "5.5.3 The archive-time-stamp-v3 attribute":
+		 *     If an ATSv2, or other earlier form of archive time-stamp or a long-term-validation attribute, is
+		 *     present in any SignerInfo of the root SignedData then the root SignedData.certificates and
+		 *     SignedData.crls contents shall not be modified.
+		 */
+		if (!includesArchiveTimestamps(cmsSignedData)) {
+			cmsSignedData = cadesProfileLT.extendCMSSignatures(cmsSignedData, parameters);
+		}
+		return cmsSignedData;
+//		return cadesProfileLT.extendCMSSignatures(cmsSignedData, parameters);
 	}
+	private boolean includesArchiveTimestamps(CMSSignedData cmsSignedData) {
+		SignerInformation signerInformation = cmsSignedData.getSignerInfos().iterator().next();
+		AttributeTable unsignedAttributes = CMSUtils.getUnsignedAttributes(signerInformation);
+		return getLastArchiveTimestamp(unsignedAttributes) != null;
+	}
+
+	private TimeStampToken getLastArchiveTimestamp(AttributeTable unsignedAttributes) {
+		TimeStampToken lastTimeStampToken = null;
+		for (ASN1ObjectIdentifier identifier : archiveTimestampOIDs) {
+			lastTimeStampToken = getLastTimeStampTokenWithOid(lastTimeStampToken, unsignedAttributes, identifier);
+		}
+		return lastTimeStampToken;
+	}
+	private TimeStampToken getLastTimeStampTokenWithOid(TimeStampToken lastTimeStampToken, AttributeTable unsignedAttributes, ASN1ObjectIdentifier asn1ObjectIdentifier) {
+		TimeStampTokenProductionComparator comparator = new TimeStampTokenProductionComparator();
+		for (TimeStampToken timeStampToken : DSSASN1Utils.findTimeStampTokens(unsignedAttributes, asn1ObjectIdentifier)) {
+			if (lastTimeStampToken == null || comparator.after(timeStampToken, lastTimeStampToken)) {
+				lastTimeStampToken = timeStampToken;
+			}
+		}
+		return lastTimeStampToken;
+	}
+
 
 	@Override
 	protected SignerInformation extendCMSSignature(final CMSSignedData cmsSignedData, SignerInformation signerInformation,
@@ -115,11 +161,16 @@ public class CAdESLevelBaselineLTA extends CAdESSignatureExtension {
 		final CadesLevelBaselineLTATimestampExtractor timestampExtractor = new CadesLevelBaselineLTATimestampExtractor(cadesSignature);
 		final DigestAlgorithm timestampDigestAlgorithm = parameters.getSignatureTimestampParameters().getDigestAlgorithm();
 		final Attribute atsHashIndexAttribute = timestampExtractor.getAtsHashIndex(signerInformation, timestampDigestAlgorithm);
+		DSSDocument originalDocumentWithParameters = CMSUtils.getOriginalDocumentWithParameters(cmsSignedData, parameters);
+		byte[] encodedToTimestamp;
+		if(originalDocumentWithParameters instanceof DigestDocument){
+			encodedToTimestamp = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, (DigestDocument)originalDocumentWithParameters,
+					timestampDigestAlgorithm);
+		}else{
+			encodedToTimestamp = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, originalDocumentWithParameters.openStream(),
+					timestampDigestAlgorithm);
+		}
 
-		final InputStream originalDocumentBytes = getOriginalDocumentBytes(cmsSignedData, parameters);
-
-		final byte[] encodedToTimestamp = timestampExtractor.getArchiveTimestampDataV3(signerInformation, atsHashIndexAttribute, originalDocumentBytes,
-				timestampDigestAlgorithm);
 
 		final ASN1Object timeStampAttributeValue = getTimeStampAttributeValue(signatureTsa, encodedToTimestamp, timestampDigestAlgorithm,
 				atsHashIndexAttribute);

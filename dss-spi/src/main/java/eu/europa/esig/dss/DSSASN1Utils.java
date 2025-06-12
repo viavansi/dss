@@ -27,6 +27,7 @@ import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -41,6 +42,7 @@ import javax.naming.ldap.Rdn;
 import javax.security.auth.x500.X500Principal;
 
 import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1InputStream;
@@ -48,8 +50,10 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1String;
 import org.bouncycastle.asn1.ASN1UTCTime;
+import org.bouncycastle.asn1.BERTags;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DEROctetString;
@@ -59,6 +63,7 @@ import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLSet;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.asn1.cms.Attributes;
 import org.bouncycastle.asn1.ocsp.BasicOCSPResponse;
 import org.bouncycastle.asn1.ocsp.OCSPObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -81,7 +86,11 @@ import org.bouncycastle.asn1.x509.qualified.QCStatement;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.tsp.TSPException;
 import org.bouncycastle.tsp.TimeStampToken;
 import org.bouncycastle.x509.extension.X509ExtensionUtil;
 import org.slf4j.Logger;
@@ -89,6 +98,8 @@ import org.slf4j.LoggerFactory;
 
 import eu.europa.esig.dss.utils.Utils;
 import eu.europa.esig.dss.x509.CertificateToken;
+
+import static eu.europa.esig.dss.OID.id_aa_ATSHashIndex;
 
 /**
  * Utility class that contains some ASN1 related method.
@@ -104,6 +115,7 @@ public final class DSSASN1Utils {
 	 * This class is an utility class and cannot be instantiated.
 	 */
 	private DSSASN1Utils() {
+		// empty
 	}
 
 	/**
@@ -114,6 +126,7 @@ public final class DSSASN1Utils {
 	 *            array of bytes to be transformed to {@code ASN1Primitive}
 	 * @return new {@code T extends ASN1Primitive}
 	 */
+	@SuppressWarnings("unchecked")
 	public static <T extends ASN1Primitive> T toASN1Primitive(final byte[] bytes) throws DSSException {
 		try {
 			@SuppressWarnings("unchecked")
@@ -144,13 +157,43 @@ public final class DSSASN1Utils {
 	 * @return array of bytes representing the DER encoded asn1Encodable
 	 */
 	public static byte[] getDEREncoded(ASN1Encodable asn1Encodable) {
+		return getEncoded(asn1Encodable, ASN1Encoding.DER);
+	}
+	/**
+	 * This method returns BER encoded ASN1 attribute. The {@code IOException} is
+	 * transformed in {@code DSSException}.
+	 *
+	 * @param asn1Encodable
+	 *            asn1Encodable to be BER encoded
+	 * @return array of bytes representing the BER encoded asn1Encodable
+	 */
+	public static byte[] getBEREncoded(ASN1Encodable asn1Encodable) {
+		return getEncoded(asn1Encodable, ASN1Encoding.BER);
+	}
+	/**
+	 * This method returns encoded ASN1 attribute. The {@code IOException} is
+	 * transformed in {@code DSSException}.
+	 *
+	 * @param asn1Encodable
+	 *            asn1Encodable to be the given encoding
+	 * @param encoding
+	 *            the expected encoding
+	 * @return array of bytes representing the encoded asn1Encodable
+	 */
+	private static byte[] getEncoded(ASN1Encodable asn1Encodable, String encoding) {
 		try {
-			return asn1Encodable.toASN1Primitive().getEncoded(ASN1Encoding.DER);
+			return asn1Encodable.toASN1Primitive().getEncoded(encoding);
 		} catch (IOException e) {
-			throw new DSSException(e);
+			throw new DSSException(String.format("Unable to encode to %s. Reason : %s", encoding, e.getMessage()), e);
 		}
 	}
 
+	/**
+	 * Gets the DER-encoded binaries of the {@code BasicOCSPResp}
+	 *
+	 * @param basicOCSPResp {@link BasicOCSPResp}
+	 * @return DER-encoded binaries
+	 */
 	public static byte[] getEncoded(BasicOCSPResp basicOCSPResp) {
 		try {
 			BasicOCSPResponse basicOCSPResponse = BasicOCSPResponse.getInstance(basicOCSPResp.getEncoded());
@@ -195,6 +238,23 @@ public final class DSSASN1Utils {
 			throw new DSSException(e);
 		}
 	}
+	/**
+	 * Returns an ASN.1 encoded bytes representing the {@code CMSSignedData}
+	 *
+	 * @param cmsSignedData
+	 *                       {@code CMSSignedData}
+	 * @return the binary of the {@code CMSSignedData} @ if the {@code
+	 * CMSSignedData} encoding fails
+	 */
+	public static byte[] getEncoded(final CMSSignedData cmsSignedData) {
+		try {
+			return cmsSignedData.getEncoded();
+		} catch (IOException e) {
+			throw new DSSException("Unable to encode to DER", e);
+		}
+	}
+
+
 
 	/**
 	 * This method returns the {@code ASN1Sequence} encapsulated in {@code DEROctetString}. The {@code DEROctetString}
@@ -349,7 +409,7 @@ public final class DSSASN1Utils {
 	 * Get the list of all QCStatement Ids that are present in the certificate.
 	 * (As per ETSI EN 319 412-5 V2.1.1)
 	 * 
-	 * @param x509Certificate
+	 * @param certToken
 	 * @return
 	 */
 	public static List<String> getQCStatementsIdList(final CertificateToken certToken) {
@@ -760,5 +820,144 @@ public final class DSSASN1Utils {
 			return originalAttributeTable;
 		}
 	}
+	/**
+	 * Returns the first {@code SignerInformation} extracted from {@code CMSSignedData}.
+	 *
+	 * @param cms
+	 *            CMSSignedData
+	 * @return returns {@code SignerInformation}
+	 */
+	public static SignerInformation getFirstSignerInformation(final CMSSignedData cms) {
+		final Collection<SignerInformation> signers = cms.getSignerInfos().getSigners();
+		if (signers.size() > 1) {
+			LOG.warn("!!! The framework handles only one signer (SignerInformation) !!!");
+		}
+		return signers.iterator().next();
+	}
+
+	/**
+	 * Checks if the byte defines an ASN1 Sequence
+	 *
+	 * @param tagByte byte to check
+	 * @return TRUE if the byte defines an ASN1 Sequence, FALSE otherwise
+	 */
+	public static boolean isASN1SequenceTag(byte tagByte) {
+		// BERTags.SEQUENCE | BERTags.CONSTRUCTED = 0x30
+		return (BERTags.SEQUENCE | BERTags.CONSTRUCTED) == tagByte;
+	}
+
+	/**
+	 * Returns generation time for the provided {@code timeStampToken}
+	 * @param timeStampToken {@link TimeStampToken} to get generation time for
+	 * @return {@link Date} timestamp generation time
+	 */
+	public static Date getTimeStampTokenGenerationTime(TimeStampToken timeStampToken) {
+		if (timeStampToken != null) {
+			return timeStampToken.getTimeStampInfo().getGenTime();
+		}
+		return null;
+	}
+
+	/**
+	 * Returns an array of {@link Attribute}s for a given {@code oid} found in the {@code unsignedAttributes}
+	 * @param unsignedAttributes {@link AttributeTable} of a signature
+	 * @param oid target {@link ASN1ObjectIdentifier}
+	 * @return {@link Attribute}s array
+	 */
+	public static Attribute[] getAsn1Attributes(AttributeTable unsignedAttributes, ASN1ObjectIdentifier oid) {
+		ASN1EncodableVector encodableVector = unsignedAttributes.getAll(oid);
+		if (encodableVector == null) {
+			return null;
+		}
+		Attributes attributes = new Attributes(encodableVector);
+		return attributes.getAttributes();
+	}
+
+
+	/**
+	 * Finds {@link TimeStampToken}s with a given {@code oid}
+	 * @param unsignedAttributes {@link AttributeTable} to obtain timestamps from
+	 * @param oid {@link ASN1ObjectIdentifier} to collect
+	 */
+	public static List<TimeStampToken> findTimeStampTokens(AttributeTable unsignedAttributes, ASN1ObjectIdentifier oid) {
+		List<TimeStampToken> timeStamps = new ArrayList<TimeStampToken>();
+		Attribute[] signatureTimeStamps = getAsn1Attributes(unsignedAttributes, oid);
+		if (signatureTimeStamps != null) {
+			for (final Attribute attribute : signatureTimeStamps) {
+				TimeStampToken timeStampToken = getTimeStampToken(attribute);
+				if (timeStampToken != null) {
+					timeStamps.add(timeStampToken);
+				}
+			}
+		}
+		return timeStamps;
+	}
+
+
+	/**
+	 * Creates a TimeStampToken from the provided {@code attribute}
+	 * @param attribute {@link Attribute} to generate {@link TimeStampToken} from
+	 * @return {@link TimeStampToken}
+	 */
+	public static TimeStampToken getTimeStampToken(Attribute attribute) {
+		try {
+			CMSSignedData signedData = getCMSSignedData(attribute);
+			if (signedData != null) {
+				return new TimeStampToken(signedData);
+			}
+		} catch (IOException | CMSException | TSPException e) {
+			LOG.warn("The given TimeStampToken cannot be created! Reason: [{}]", e.getMessage());
+		}
+		return null;
+	}
+
+	/**
+	 * Creates a CMSSignedData from the provided {@code attribute}
+	 * @param attribute {@link Attribute} to generate {@link CMSSignedData} from
+	 * @return {@link CMSSignedData}
+	 * @throws IOException in case of encoding exception
+	 * @throws CMSException in case if the provided {@code attribute} cannot be converted to {@link CMSSignedData}
+	 */
+	public static CMSSignedData getCMSSignedData(Attribute attribute) throws CMSException, IOException {
+		ASN1Encodable value = getAsn1Encodable(attribute);
+		if (value instanceof DEROctetString) {
+			LOG.warn("Illegal content for CMSSignedData (OID : {}) : OCTET STRING is not allowed !", attribute.getAttrType().toString());
+		} else {
+			ASN1Primitive asn1Primitive = value.toASN1Primitive();
+			return new CMSSignedData(asn1Primitive.getEncoded());
+		}
+		return null;
+	}
+
+	/**
+	 * Returns {@code ASN1Encodable} of the {@code attribute}
+	 * @param attribute {@link Attribute}
+	 */
+	public static ASN1Encodable getAsn1Encodable(Attribute attribute) {
+		return attribute.getAttrValues().getObjectAt(0);
+	}
+
+	/**
+	 * Returns ats-hash-index table from timestamp's unsigned properties
+	 *
+	 * @param timestampUnsignedAttributes {@link AttributeTable} unsigned properties of the timestamp
+	 * @return the content of SignedAttribute: ATS-hash-index unsigned attribute {itu-t(0) identified-organization(4)
+	 *         etsi(0) electronic-signature-standard(1733) attributes(2) 5}
+	 */
+	public static ASN1Sequence getAtsHashIndex(AttributeTable timestampUnsignedAttributes) {
+		if (timestampUnsignedAttributes != null) {
+			final Attribute atsHashIndexAttribute = timestampUnsignedAttributes.get(id_aa_ATSHashIndex);
+			if (atsHashIndexAttribute != null) {
+				final ASN1Set attrValues = atsHashIndexAttribute.getAttrValues();
+				if (attrValues != null && attrValues.size() > 0) {
+					return (ASN1Sequence) attrValues.getObjectAt(0).toASN1Primitive();
+				}
+			}
+		}
+		return null;
+	}
+
+
+
 
 }

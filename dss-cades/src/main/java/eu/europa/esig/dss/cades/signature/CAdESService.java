@@ -23,11 +23,21 @@ package eu.europa.esig.dss.cades.signature;
 import java.util.Arrays;
 import java.util.List;
 
+import eu.europa.esig.dss.DSSASN1Utils;
+import eu.europa.esig.dss.DigestAlgorithm;
+import eu.europa.esig.dss.DigestDocument;
+import eu.europa.esig.dss.cades.validation.PrecomputedDigestCalculatorProvider;
+import org.bouncycastle.cms.CMSAbsentContent;
+import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSSignedDataParser;
 import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.cms.SignerInfoGenerator;
 import org.bouncycastle.cms.SignerInfoGeneratorBuilder;
+import org.bouncycastle.operator.DigestCalculatorProvider;
+import org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,15 +89,15 @@ public class CAdESService extends AbstractSignatureService<CAdESSignatureParamet
 
 		final SignatureAlgorithm signatureAlgorithm = parameters.getSignatureAlgorithm();
 		final CustomContentSigner customContentSigner = new CustomContentSigner(signatureAlgorithm.getJCEId());
-		final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = cmsSignedDataBuilder.getSignerInfoGeneratorBuilder(parameters, false);
+		final DigestCalculatorProvider dcp = getDigestCalculatorProvider(toSignDocument, parameters);
+		final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = cmsSignedDataBuilder.getSignerInfoGeneratorBuilder(dcp,parameters, false);
 		final CMSSignedData originalCmsSignedData = getCmsSignedData(toSignDocument, parameters);
 
 		final CMSSignedDataGenerator cmsSignedDataGenerator = cmsSignedDataBuilder.createCMSSignedDataGenerator(parameters, customContentSigner,
 				signerInfoGeneratorBuilder, originalCmsSignedData);
 
 		final DSSDocument toSignData = getToSignData(toSignDocument, parameters, originalCmsSignedData);
-
-		final CMSProcessableByteArray content = new CMSProcessableByteArray(DSSUtils.toByteArray(toSignData));
+		final CMSTypedData content = CMSUtils.getContentToBeSign(toSignData);
 		final boolean encapsulate = !SignaturePackaging.DETACHED.equals(packaging);
 		CMSUtils.generateCMSSignedData(cmsSignedDataGenerator, content, encapsulate);
 		final byte[] bytes = customContentSigner.getOutputStream().toByteArray();
@@ -104,7 +114,8 @@ public class CAdESService extends AbstractSignatureService<CAdESSignatureParamet
 
 		final SignatureAlgorithm signatureAlgorithm = parameters.getSignatureAlgorithm();
 		final CustomContentSigner customContentSigner = new CustomContentSigner(signatureAlgorithm.getJCEId(), signatureValue.getValue());
-		final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = cmsSignedDataBuilder.getSignerInfoGeneratorBuilder(parameters, true);
+		final DigestCalculatorProvider dcp = getDigestCalculatorProvider(toSignDocument, parameters);
+		final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = cmsSignedDataBuilder.getSignerInfoGeneratorBuilder(dcp, parameters, true);
 		final CMSSignedData originalCmsSignedData = getCmsSignedData(toSignDocument, parameters);
 		if ((originalCmsSignedData == null) && SignaturePackaging.DETACHED.equals(packaging) && Utils.isCollectionEmpty(parameters.getDetachedContents())) {
 			parameters.setDetachedContents(Arrays.asList(toSignDocument));
@@ -114,7 +125,7 @@ public class CAdESService extends AbstractSignatureService<CAdESSignatureParamet
 				signerInfoGeneratorBuilder, originalCmsSignedData);
 
 		final DSSDocument toSignData = getToSignData(toSignDocument, parameters, originalCmsSignedData);
-		final CMSProcessableByteArray content = new CMSProcessableByteArray(DSSUtils.toByteArray(toSignData));
+		final CMSTypedData content = CMSUtils.getContentToBeSign(toSignData);
 		final boolean encapsulate = !SignaturePackaging.DETACHED.equals(packaging);
 		final CMSSignedData cmsSignedData = CMSUtils.generateCMSSignedData(cmsSignedDataGenerator, content, encapsulate);
 		DSSDocument signature = new CMSSignedDocument(cmsSignedData);
@@ -216,18 +227,20 @@ public class CAdESService extends AbstractSignatureService<CAdESSignatureParamet
 	private CMSSignedData getCmsSignedData(final DSSDocument dssDocument, final CAdESSignatureParameters parameters) {
 
 		CMSSignedData cmsSignedData = null;
-		try {
-			// check if input dssDocument is already signed
-			cmsSignedData = new CMSSignedData(DSSUtils.toByteArray(dssDocument));
-			final SignaturePackaging signaturePackaging = parameters.getSignaturePackaging();
-			if (signaturePackaging == SignaturePackaging.ENVELOPING) {
+		if (!(dssDocument instanceof DigestDocument) && DSSASN1Utils.isASN1SequenceTag(DSSUtils.readFirstByte(dssDocument))) {
+			try {
+				// check if input dssDocument is already signed
+				cmsSignedData = new CMSSignedData(DSSUtils.toByteArray(dssDocument));
+				final SignaturePackaging signaturePackaging = parameters.getSignaturePackaging();
+				if (signaturePackaging == SignaturePackaging.ENVELOPING) {
 
-				if (cmsSignedData.getSignedContent().getContent() == null) {
-					cmsSignedData = null;
+					if (cmsSignedData.getSignedContent().getContent() == null) {
+						cmsSignedData = null;
+					}
 				}
+			} catch (Exception e) {
+				// not a parallel signature
 			}
-		} catch (Exception e) {
-			// not a parallel signature
 		}
 		return cmsSignedData;
 	}
@@ -242,5 +255,15 @@ public class CAdESService extends AbstractSignatureService<CAdESSignatureParamet
 		if ((packaging != SignaturePackaging.ENVELOPING) && (packaging != SignaturePackaging.DETACHED)) {
 			throw new DSSException("Unsupported signature packaging: " + packaging);
 		}
+	}
+
+	private DigestCalculatorProvider getDigestCalculatorProvider(DSSDocument toSignDocument, CAdESSignatureParameters parameters) {
+		DigestAlgorithm referenceDigestAlgorithm = parameters.getReferenceDigestAlgorithm();
+		if (referenceDigestAlgorithm != null) {
+			return new CustomMessageDigestCalculatorProvider(referenceDigestAlgorithm, toSignDocument.getDigest(referenceDigestAlgorithm));
+		} else if (toSignDocument instanceof DigestDocument) {
+			return new PrecomputedDigestCalculatorProvider((DigestDocument) toSignDocument);
+		}
+		return new BcDigestCalculatorProvider();
 	}
 }

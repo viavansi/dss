@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V45</version>
+		<version>5.0.V46</version>
 	</parent>
 
 	<artifactId>dss-xades</artifactId>
@@ -27,6 +27,10 @@
 			<groupId>xalan</groupId>
 			<artifactId>xalan</artifactId>
 		</dependency>
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
+        </dependency>
 
 		<dependency>
 			<groupId>eu.europa.ec.joinup.sd-dss</groupId>

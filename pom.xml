@@ -5,7 +5,7 @@
 
 	<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 	<artifactId>sd-dss</artifactId>
-	<version>5.0.V45</version>
+	<version>5.0.V46</version>
 	<packaging>pom</packaging>
 	<name>Digital Signature Services</name>
 
@@ -512,6 +512,11 @@
 				<artifactId>xalan</artifactId>
 				<version>${xalan.version}</version>
 			</dependency>
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>${xalan.version}</version>
+            </dependency>
 			<dependency>
 				<groupId>org.bouncycastle</groupId>
 				<artifactId>bcprov-jdk15on</artifactId>

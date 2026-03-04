@@ -1,0 +1,1 @@
+eu.europa.ec.joinup.sd-dss:sd-dss:pom:4.7.0

@@ -1,0 +1,35 @@
+eu.europa.ec.joinup.sd-dss:dss-validation-rest-client:jar:4.7.0
++- eu.europa.ec.joinup.sd-dss:dss-reports:jar:4.7.0:compile
++- org.apache.cxf:cxf-rt-frontend-jaxrs:jar:2.7.16:compile
+|  +- org.apache.cxf:cxf-api:jar:2.7.16:compile
+|  |  +- org.codehaus.woodstox:woodstox-core-asl:jar:4.4.1:compile
+|  |  |  \- org.codehaus.woodstox:stax2-api:jar:3.1.4:compile
+|  |  +- org.apache.ws.xmlschema:xmlschema-core:jar:2.1.0:compile
+|  |  +- org.apache.geronimo.specs:geronimo-javamail_1.4_spec:jar:1.7.1:compile
+|  |  \- wsdl4j:wsdl4j:jar:1.6.3:compile
+|  +- org.apache.cxf:cxf-rt-core:jar:2.7.16:compile
+|  |  \- com.sun.xml.bind:jaxb-impl:jar:2.1.13:compile
+|  +- javax.ws.rs:javax.ws.rs-api:jar:2.0-m10:compile
+|  +- org.apache.cxf:cxf-rt-bindings-xml:jar:2.7.16:compile
+|  \- org.apache.cxf:cxf-rt-transports-http:jar:2.7.16:compile
++- com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:jar:2.5.4:compile
+|  +- com.fasterxml.jackson.jaxrs:jackson-jaxrs-base:jar:2.5.4:compile
+|  +- com.fasterxml.jackson.core:jackson-core:jar:2.5.4:compile
+|  +- com.fasterxml.jackson.core:jackson-databind:jar:2.5.4:compile
+|  |  \- com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0:compile
+|  \- com.fasterxml.jackson.module:jackson-module-jaxb-annotations:jar:2.5.4:compile
++- junit:junit:jar:4.11:test
+|  \- org.hamcrest:hamcrest-core:jar:1.3:test
++- ch.qos.logback:logback-classic:jar:1.0.13:test
+|  +- ch.qos.logback:logback-core:jar:1.0.13:test
+|  \- org.slf4j:slf4j-api:jar:1.6.6:test
++- org.slf4j:jcl-over-slf4j:jar:1.6.6:test
++- org.springframework:spring-test:jar:3.2.17.RELEASE:test
+|  \- org.springframework:spring-core:jar:3.2.17.RELEASE:test
++- org.springframework:spring-context-support:jar:3.2.17.RELEASE:test
+|  +- org.springframework:spring-beans:jar:3.2.17.RELEASE:test
+|  \- org.springframework:spring-context:jar:3.2.17.RELEASE:test
+|     +- org.springframework:spring-aop:jar:3.2.17.RELEASE:test
+|     |  \- aopalliance:aopalliance:jar:1.0:test
+|     \- org.springframework:spring-expression:jar:3.2.17.RELEASE:test
+\- eu.europa.ec.joinup.sd-dss:dss-test:jar:4.7.0:test

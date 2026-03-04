@@ -1,0 +1,8 @@
+eu.europa.ec.joinup.sd-dss:dss-reports:jar:4.7.0
++- eu.europa.ec.joinup.sd-dss:dss-model:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-policy-jaxb:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-detailed-report-jaxb:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-simple-report-jaxb:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-diagnostic-jaxb:jar:4.7.0:compile
++- commons-lang:commons-lang:jar:2.6:compile
+\- commons-collections:commons-collections:jar:3.2.2:compile

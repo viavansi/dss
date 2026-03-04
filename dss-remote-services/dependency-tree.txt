@@ -1,0 +1,6 @@
+eu.europa.ec.joinup.sd-dss:dss-remote-services:jar:4.7.0
++- eu.europa.ec.joinup.sd-dss:dss-model:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-xades:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-cades:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-pades:jar:4.7.0:compile
+\- eu.europa.ec.joinup.sd-dss:dss-asic:jar:4.7.0:compile

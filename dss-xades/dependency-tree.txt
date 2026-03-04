@@ -1,0 +1,17 @@
+eu.europa.ec.joinup.sd-dss:dss-xades:jar:4.7.0
++- eu.europa.ec.joinup.sd-dss:dss-document:jar:4.7.0:compile
++- org.apache.santuario:xmlsec:jar:2.0.6:compile
+|  +- org.slf4j:slf4j-api:jar:1.6.6:compile
+|  +- org.codehaus.woodstox:woodstox-core-asl:jar:4.4.1:compile
+|  |  +- javax.xml.stream:stax-api:jar:1.0-2:compile
+|  |  \- org.codehaus.woodstox:stax2-api:jar:3.1.4:compile
+|  \- commons-codec:commons-codec:jar:1.6:compile
++- xalan:xalan:jar:2.7.2:compile
+|  \- xalan:serializer:jar:2.7.2:compile
+|     \- xml-apis:xml-apis:jar:1.3.04:compile
++- junit:junit:jar:4.11:test
+|  \- org.hamcrest:hamcrest-core:jar:1.3:test
++- eu.europa.ec.joinup.sd-dss:dss-test:jar:4.7.0:test
++- eu.europa.ec.joinup.sd-dss:dss-document:test-jar:tests:4.7.0:test
+\- ch.qos.logback:logback-classic:jar:1.0.13:test
+   \- ch.qos.logback:logback-core:jar:1.0.13:test

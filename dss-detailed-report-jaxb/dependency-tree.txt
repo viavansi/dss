@@ -1,0 +1,2 @@
+eu.europa.ec.joinup.sd-dss:dss-detailed-report-jaxb:jar:4.7.0
+\- eu.europa.ec.joinup.sd-dss:dss-common-validation-jaxb:jar:4.7.0:compile

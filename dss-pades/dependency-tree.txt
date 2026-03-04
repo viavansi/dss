@@ -1,0 +1,15 @@
+eu.europa.ec.joinup.sd-dss:dss-pades:jar:4.7.0
++- eu.europa.ec.joinup.sd-dss:dss-document:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-cades:jar:4.7.0:compile
++- eu.europa.ec.joinup.sd-dss:dss-spi:jar:4.7.0:compile
++- org.apache.pdfbox:pdfbox:jar:1.8.12:compile
+|  +- org.apache.pdfbox:fontbox:jar:1.8.12:compile
+|  \- org.apache.pdfbox:jempbox:jar:1.8.12:compile
++- org.slf4j:jcl-over-slf4j:jar:1.6.6:runtime
+|  \- org.slf4j:slf4j-api:jar:1.6.6:runtime
++- junit:junit:jar:4.11:test
+|  \- org.hamcrest:hamcrest-core:jar:1.3:test
++- eu.europa.ec.joinup.sd-dss:dss-test:jar:4.7.0:test
++- eu.europa.ec.joinup.sd-dss:dss-document:test-jar:tests:4.7.0:test
+\- ch.qos.logback:logback-classic:jar:1.0.13:test
+   \- ch.qos.logback:logback-core:jar:1.0.13:test

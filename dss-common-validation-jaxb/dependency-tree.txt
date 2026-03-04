@@ -1,0 +1,2 @@
+eu.europa.ec.joinup.sd-dss:dss-common-validation-jaxb:jar:4.7.0
+\- org.slf4j:slf4j-api:jar:1.6.6:compile

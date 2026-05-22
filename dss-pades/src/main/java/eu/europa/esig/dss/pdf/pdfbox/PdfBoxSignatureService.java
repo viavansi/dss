@@ -48,6 +48,7 @@ import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.io.IOUtils;
+import org.apache.pdfbox.util.DateConverter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -241,9 +242,24 @@ class PdfBoxSignatureService implements PDFSignatureService {
             pdImageXObject = PDImageXObject.createFromByteArray(document, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
         }
 
-        for (int i = 0; i < document.getNumberOfPages(); i++) {
-            //if (signatureOptions.getPage() != i) {
-            PDPage page = document.getPage(i);
+        // Hoist: PDPageTree.get(int) is O(n) — computing once avoids O(n²) in the loop
+        PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
+        int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
+        // Pre-compute once: DateConverter.toString() clones the Calendar internally on every call
+        String precomputedDateStr = DateConverter.toString(calendar);
+
+        // The same annotation object can appear in multiple pages' /Annots arrays (PDF spec allows it).
+        // Key: rotation + page dimensions — uniquely determines x, y, width, height.
+        // For a uniform document (all pages same size/rotation) this produces exactly 1 annotation,
+        // 1 form XObject and 1 image in the incremental update instead of N copies.
+        Map<String, PDAnnotationRubberStamp> stampCache = new HashMap<>();
+        Map<String, PDAnnotationLink> linkCache = new HashMap<>();
+
+        // Iterate via PDPageTree iterator (O(1) per page) instead of getPage(int) (O(n) per page)
+        for (PDPage page : document.getPages()) {
             List<PDAnnotation> annotations = page.getAnnotations();
 
             COSDictionary dict = page.getCOSObject();
@@ -255,22 +271,6 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 }
             }
 
-            // stamp
-            PDAnnotationRubberStamp stamp = new PDAnnotationRubberStamp();
-            stamp.setName(pAdESSignatureParameters.getReason());
-            stamp.setContents(null);
-            stamp.setLocked(true);
-            stamp.setReadOnly(true);
-            stamp.setPrinted(true);
-
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(pAdESSignatureParameters.getBLevelParams().getSigningDate());
-            stamp.setCreationDate(calendar);
-            stamp.setModifiedDate(calendar);
-
-            PDVisibleSignDesigner signDesigner = pdVisibleSigProperties.getPdVisibleSignature();
-
-            int signDesignerRotation = document.getPage(signatureOptions.getPage()).getRotation();
             int pageRotation = page.getRotation();
 
             float width = signDesigner.getWidth();
@@ -281,8 +281,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 height = temp;
             }
 
-            float pageWidth = page.getMediaBox().getWidth();
-            float pageHeight = page.getMediaBox().getHeight();
+            PDRectangle mediaBox = page.getMediaBox();
+            float pageWidth = mediaBox.getWidth();
+            float pageHeight = mediaBox.getHeight();
 
             float stamperX;
             float stamperY;
@@ -301,48 +302,69 @@ class PdfBoxSignatureService implements PDFSignatureService {
             float x = stamperX < 0 ? pageWidth - width + stamperX : stamperX;
             float y = stamperY < 0 ? -stamperY : pageHeight - height - stamperY;
 
-            PDRectangle rectangle = new PDRectangle(x, y, width, height);
-            PDFormXObject form = new PDFormXObject(document);
-            form.setResources(new PDResources());
-            form.setBBox(rectangle);
-            form.setFormType(1);
+            String geometryKey = pageRotation + "_" + pageWidth + "_" + pageHeight;
 
-            form.getResources().getCOSObject().setNeedToBeUpdated(true);
-            form.getResources().add(pdImageXObject);
-            PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
-            PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
-            appearance.setNormalAppearance(appearanceStream);
-            stamp.setAppearance(appearance);
-            stamp.setRectangle(rectangle);
-            PDPageContentStream stream = new PDPageContentStream(document, appearanceStream);
+            PDAnnotationRubberStamp stamp = stampCache.get(geometryKey);
+            if (stamp == null) {
+                PDFormXObject form = new PDFormXObject(document);
+                PDResources resources = new PDResources();
+                form.setResources(resources);
+                form.setBBox(new PDRectangle(x, y, width, height));
+                form.setFormType(1);
+                resources.getCOSObject().setNeedToBeUpdated(true);
+                resources.add(pdImageXObject);
+                PDAppearanceStream appearanceStream = new PDAppearanceStream(form.getCOSObject());
 
-            AffineTransform affineTransform;
-            if (pageRotation == 90) {
-                affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
-            } else if (pageRotation == 270) {
-                affineTransform = new AffineTransform(0, -height, width, 0, x, y + height);
-            } else {
-                affineTransform = new AffineTransform(width, 0, 0, height, x, y);
+                AffineTransform affineTransform;
+                if (pageRotation == 90) {
+                    affineTransform = new AffineTransform(0, height, -width, 0, x + width, y);
+                } else if (pageRotation == 270) {
+                    affineTransform = new AffineTransform(0, -height, width, 0, x, y + height);
+                } else {
+                    affineTransform = new AffineTransform(width, 0, 0, height, x, y);
+                }
+                try (PDPageContentStream contentStream = new PDPageContentStream(document, appearanceStream)) {
+                    contentStream.drawImage(pdImageXObject, new Matrix(affineTransform));
+                }
+                form.getCOSObject().setNeedToBeUpdated(true);
+                appearanceStream.getCOSObject().setNeedToBeUpdated(true);
+
+                stamp = new PDAnnotationRubberStamp();
+                stamp.setName(pAdESSignatureParameters.getReason());
+                stamp.setContents(null);
+                stamp.setLocked(true);
+                stamp.setReadOnly(true);
+                stamp.setPrinted(true);
+                stamp.getCOSObject().setString(COSName.CREATION_DATE, precomputedDateStr);
+                stamp.getCOSObject().setString(COSName.M, precomputedDateStr);
+
+                PDAppearanceDictionary appearance = new PDAppearanceDictionary(new COSDictionary());
+                appearance.setNormalAppearance(appearanceStream);
+                stamp.setAppearance(appearance);
+                stamp.setRectangle(new PDRectangle(x, y, width, height));
+
+                appearance.getCOSObject().setNeedToBeUpdated(true);
+                stamp.getCOSObject().setNeedToBeUpdated(true);
+
+                stampCache.put(geometryKey, stamp);
             }
-            stream.drawImage(pdImageXObject, new Matrix(affineTransform));
 
-            stream.close();
-            // close and save
             annotations.add(stamp);
-            if(pAdESSignatureParameters.getLink()!=null) {
-                // add an action
-                PDActionURI action = new PDActionURI();
-                action.setURI(pAdESSignatureParameters.getLink());
-                PDAnnotationLink link = new PDAnnotationLink();
-                link.setRectangle(rectangle);
-                link.setAction(action);
+
+            if (pAdESSignatureParameters.getLink() != null) {
+                PDAnnotationLink link = linkCache.get(geometryKey);
+                if (link == null) {
+                    PDActionURI action = new PDActionURI();
+                    action.setURI(pAdESSignatureParameters.getLink());
+                    link = new PDAnnotationLink();
+                    link.setRectangle(new PDRectangle(x, y, width, height));
+                    link.setAction(action);
+                    link.getCOSObject().setNeedToBeUpdated(true);
+                    linkCache.put(geometryKey, link);
+                }
                 annotations.add(link);
             }
-            appearanceStream.getCOSObject().setNeedToBeUpdated(true);
-            appearance.getCOSObject().setNeedToBeUpdated(true);
-            rectangle.getCOSArray().setNeedToBeUpdated(true);
-            stamp.getCOSObject().setNeedToBeUpdated(true);
-            form.getCOSObject().setNeedToBeUpdated(true);
+
             COSArrayList<PDAnnotation> list = (COSArrayList<PDAnnotation>) annotations;
             COSArrayList.converterToCOSArray(list).setNeedToBeUpdated(true);
             document.getPages().getCOSObject().setNeedToBeUpdated(true);

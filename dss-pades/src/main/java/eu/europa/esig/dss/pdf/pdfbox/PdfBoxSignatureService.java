@@ -159,8 +159,11 @@ class PdfBoxSignatureService implements PDFSignatureService {
                 }
 
                 options.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE * 10);
-
                 pdDocument.addSignature(pdSignature, options);
+
+                // Apply acroform and visual fixes BEFORE saveIncrementalForExternalSigning
+                // so they are included in the signed content
+                applyPreSaveFixes(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties);
 
                 ExternalSigningSupport externalSigning = pdDocument.saveIncrementalForExternalSigning(fileOutputStream);
                 byte[] dataToSign = IOUtils.toByteArray(externalSigning.getContent());
@@ -170,7 +173,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
                 digest.update(dataToSign);
 
-            }else{
+            } else {
 
                 // register signature dictionary and sign interface
                 SignatureInterface signatureInterface = new SignatureInterface() {
@@ -189,41 +192,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
                 options.setPreferredSignatureSize(pAdESSignatureParameters.getSignatureSize());
                 pdDocument.addSignature(pdSignature, signatureInterface, options);
+
+                applyPreSaveFixes(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties);
+
+                saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
             }
 
-            PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
-
-            // FIX Viafirma
-            if (acroForm != null && acroForm.getNeedAppearances()) {
-                // PDFBOX-3738 NeedAppearances true results in visible signature
-                // becoming invisible
-                acroForm.getCOSObject().removeItem(COSName.NEED_APPEARANCES);
-            }
-
-//  Test same digital in all pages
-//            if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getImageParameters().isInAllPages() && pdVisibleSigProperties != null && pdDocument.getNumberOfPages() > 1) {
-//                ImageAndResolution ires = ImageUtils.create(pAdESSignatureParameters.getImageParameters());
-//                PDImageXObject pdImageXObject;
-//                try (InputStream is = ires.getInputStream()) {
-//                    pdImageXObject = PDImageXObject.createFromByteArray(pdDocument, IOUtils.toByteArray(is), pAdESSignatureParameters.getDeterministicId());
-//                }
-//
-//                for (PDPage pdPage : pdDocument.getPages()) {
-//                    PDRectangle rectangle = createSignatureRectangle(pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters(), pdPage);
-//                    addImageOnlySignatureField(pdDocument, pdPage, rectangle, pdSignature, pdImageXObject);
-//                }
-//            }
-// END Test
-            if (pAdESSignatureParameters.getImageParameters() != null
-                    && pAdESSignatureParameters.getImageParameters().isInAllPages()
-                    && pdVisibleSigProperties != null
-                    && pdDocument.getNumberOfPages() > 1
-            ) {
-                stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
-            } else if(pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getLink()!=null && pdVisibleSigProperties != null){
-                addLink(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
-            }
-            saveDocumentIncrementally(pAdESSignatureParameters, fileOutputStream, pdDocument);
             digestValue = digest.digest();
             if (logger.isDebugEnabled()) {
                 logger.debug("Digest to be signed: {}", Base64.toBase64String(digestValue));
@@ -233,6 +207,26 @@ class PdfBoxSignatureService implements PDFSignatureService {
             throw new DSSException(e);
         } finally {
             Utils.closeQuietly(options.getVisualSignature());
+        }
+    }
+
+    // Applies acroform NeedAppearances fix and visual stamp/link before the document is saved.
+    // Must be called BEFORE saveIncrementalForExternalSigning or saveDocumentIncrementally.
+    private void applyPreSaveFixes(PDDocument pdDocument, PAdESSignatureParameters pAdESSignatureParameters,
+                                   SignatureOptions options, PDVisibleSigProperties pdVisibleSigProperties) throws IOException {
+        PDAcroForm acroForm = pdDocument.getDocumentCatalog().getAcroForm();
+        // PDFBOX-3738: NeedAppearances true results in visible signature becoming invisible
+        if (acroForm != null && acroForm.getNeedAppearances()) {
+            acroForm.getCOSObject().removeItem(COSName.NEED_APPEARANCES);
+        }
+
+        if (pAdESSignatureParameters.getImageParameters() != null
+                && pAdESSignatureParameters.getImageParameters().isInAllPages()
+                && pdVisibleSigProperties != null
+                && pdDocument.getNumberOfPages() > 1) {
+            stampSignedDocument(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
+        } else if (pAdESSignatureParameters.getImageParameters() != null && pAdESSignatureParameters.getLink() != null && pdVisibleSigProperties != null) {
+            addLink(pdDocument, pAdESSignatureParameters, options, pdVisibleSigProperties, pAdESSignatureParameters.getImageParameters());
         }
     }
 

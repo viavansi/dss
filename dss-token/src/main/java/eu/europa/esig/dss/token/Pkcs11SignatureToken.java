@@ -22,6 +22,8 @@ package eu.europa.esig.dss.token;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.security.KeyStore;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStore.ProtectionParameter;
@@ -150,17 +152,63 @@ public class Pkcs11SignatureToken extends AbstractSignatureTokenConnection {
 		String aPKCS11LibraryFileName = getPkcs11Path();
 		aPKCS11LibraryFileName = escapePath(aPKCS11LibraryFileName);
 
-		String pkcs11ConfigSettings = "name = SmartCard" + UUID.randomUUID().toString() + "\n" + "library = \"" + aPKCS11LibraryFileName
+		String pkcs11ConfigSettings = "--name = SmartCard" + UUID.randomUUID().toString() + "\n" + "library = \"" + aPKCS11LibraryFileName
 				+ "\"\nslotListIndex = " + slotIndex;
 
-		byte[] pkcs11ConfigBytes = pkcs11ConfigSettings.getBytes();
-		ByteArrayInputStream confStream = new ByteArrayInputStream(pkcs11ConfigBytes);
+        try {
+            if (getJavaMajorVersion() >= 9) {
+                Provider provider = Security.getProvider("SunPKCS11");
+                Method configureMethod = provider.getClass().getMethod("configure", String.class);
+                _pkcs11Provider = (Provider) configureMethod.invoke(provider, pkcs11ConfigSettings);
+            } else {
+                Class<?> sunPkcs11ProviderClass = Class.forName("sun.security.pkcs11.SunPKCS11");
+                Constructor<?> constructor = sunPkcs11ProviderClass.getConstructor(String.class);
+                _pkcs11Provider = (Provider) constructor.newInstance(pkcs11ConfigSettings);
+            }
+		    Security.addProvider(_pkcs11Provider);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
-		sun.security.pkcs11.SunPKCS11 pkcs11 = new sun.security.pkcs11.SunPKCS11(confStream);
-		_pkcs11Provider = pkcs11;
-
-		Security.addProvider(_pkcs11Provider);
 	}
+
+    private static int getJavaMajorVersion() {
+        String version = System.getProperty("java.specification.version");
+        if (version == null || version.equals("")) {
+            version = System.getProperty("java.version");
+        }
+        if (version == null || version.equals("")) {
+            return 0;
+        }
+        return parseMajor(version.trim());
+    }
+
+    private static int parseMajor(String version) {
+        // "1.8" -> 8
+        if (version.startsWith("1.")) {
+            int dot = version.indexOf('.', 2);
+            String majorPart = (dot > 0) ? version.substring(2, dot) : version.substring(2);
+            return safeParseInt(majorPart);
+        }
+
+        // "9", "11", "17.0.2", "21-ea", "21+35"
+        int end = 0;
+        while (end < version.length() && Character.isDigit(version.charAt(end))) {
+            end++;
+        }
+        if (end == 0) {
+            return 0;
+        }
+        return safeParseInt(version.substring(0, end));
+    }
+
+    private static int safeParseInt(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
 
 	private String escapePath(String pathToEscape) {
 		if (pathToEscape != null) {
@@ -196,7 +244,7 @@ public class Pkcs11SignatureToken extends AbstractSignatureTokenConnection {
 					}
 				});
 			} catch (Exception e) {
-				if (e instanceof sun.security.pkcs11.wrapper.PKCS11Exception) {
+                if ("sun.security.pkcs11.wrapper.PKCS11Exception".equals(e.getClass().getName())) {
 					if ("CKR_PIN_INCORRECT".equals(e.getMessage())) {
 						throw new DSSException("Bad password for PKCS11", e);
 					}

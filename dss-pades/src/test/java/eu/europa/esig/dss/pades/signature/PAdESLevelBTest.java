@@ -38,6 +38,8 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.bouncycastle.asn1.ASN1Encodable;
@@ -117,7 +119,7 @@ public class PAdESLevelBTest extends AbstractPAdESTestSignature {
 		try {
 			InputStream inputStream = new ByteArrayInputStream(byteArray);
 
-			PDDocument document = PDDocument.load(inputStream);
+			PDDocument document = Loader.loadPDF(new RandomAccessReadBuffer(inputStream));
 			List<PDSignature> signatures = document.getSignatureDictionaries();
 			assertEquals(1, signatures.size());
 

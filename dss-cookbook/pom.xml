@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V47</version>
+		<version>5.0.V48</version>
 	</parent>
 
 	<name>CookBook</name>
@@ -100,7 +100,7 @@
                     <dependency>
 					    <groupId>org.jruby</groupId>
 					    <artifactId>jruby-complete</artifactId>
-					    <version>9.0.1.0</version>
+					    <version>9.2.21.0</version>
 					</dependency>
 				</dependencies>
 				<executions>

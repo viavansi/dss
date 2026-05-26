@@ -42,12 +42,14 @@ import eu.europa.esig.dss.x509.CertificateToken;
 import eu.europa.esig.dss.x509.Token;
 import eu.europa.esig.dss.x509.crl.CRLToken;
 import eu.europa.esig.dss.x509.ocsp.OCSPToken;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.io.IOUtils;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.util.DateConverter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -106,7 +108,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PDDocument pdDocument = null;
         try {
-            pdDocument = PDDocument.load(toSignDocument, parameters.getPassword());
+            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(toSignDocument), parameters.getPassword());
             PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
 
             return signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
@@ -124,7 +126,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
         PDDocument pdDocument = null;
         try {
-            pdDocument = PDDocument.load(pdfData, parameters.getPassword());
+            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(pdfData), parameters.getPassword());
             final PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
             signDocumentAndReturnDigest(parameters, signatureValue, signedStream, pdDocument, pdSignature, digestAlgorithm);
         } catch (IOException e) {
@@ -687,13 +689,9 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
         }
 
-        try {
-            List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
-            if (parameters.getCertifiedLevel() != null && (pdSignatures == null || pdSignatures.isEmpty())) {
-                addCertificationLevel(parameters, doc, signature);
-            }
-        } catch (IOException e) {
-            throw new DSSException(e);
+        List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
+        if (parameters.getCertifiedLevel() != null && (pdSignatures == null || pdSignatures.isEmpty())) {
+            addCertificationLevel(parameters, doc, signature);
         }
 
         // the signing date, needed for valid signature
@@ -750,7 +748,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         List<PdfSignatureOrDocTimestampInfo> signatures = new ArrayList<>();
         PDDocument doc = null;
         try {
-            doc = PDDocument.load(originalBytes, password);
+            doc = Loader.loadPDF(originalBytes, password);
 
             List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
             if (Utils.isCollectionNotEmpty(pdSignatures)) {
@@ -837,7 +835,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
         PDDocument doc = null;
         PdfDssDict dssDictionary = null;
         try {
-            doc = PDDocument.load(originalBytes, password);
+            doc = Loader.loadPDF(originalBytes, password);
             List<PDSignature> pdSignatures = doc.getSignatureDictionaries();
             if (Utils.isCollectionNotEmpty(pdSignatures)) {
                 PdfDict catalog = new PdfBoxDict(doc.getDocumentCatalog().getCOSObject(), doc);
@@ -863,7 +861,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
     public void addDssDictionary(InputStream inputStream, OutputStream outputStream, List<DSSDictionaryCallback> callbacks, final PAdESSignatureParameters parameters) {
         PDDocument pdDocument = null;
         try {
-            pdDocument = PDDocument.load(inputStream, parameters.getPassword());
+            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(inputStream), parameters.getPassword());
             if (Utils.isCollectionNotEmpty(callbacks)) {
                 final COSDictionary cosDictionary = pdDocument.getDocumentCatalog().getCOSObject();
                 COSDictionary dss = (COSDictionary) cosDictionary.getDictionaryObject("DSS");

@@ -6,6 +6,8 @@ import static org.junit.Assert.assertTrue;
 import java.io.FileInputStream;
 import java.util.List;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.Test;
@@ -21,7 +23,7 @@ public class VRITest {
 		String path = "src/test/resources/plugtest/esig2014/ESIG-PAdES/HU_MIC/Signature-P-HU_MIC-3.pdf";
 		String vriValue = "C41B1DBFE0E816D8A6F99A9DB98FD43960A5CF45";
 
-		PDDocument pdDoc = PDDocument.load(new FileInputStream(path));
+		PDDocument pdDoc = Loader.loadPDF(new RandomAccessReadBuffer(new FileInputStream(path)));
 		List<PDSignature> signatureDictionaries = pdDoc.getSignatureDictionaries();
 		assertTrue(Utils.isCollectionNotEmpty(signatureDictionaries));
 		PDSignature pdSignature = signatureDictionaries.get(0);

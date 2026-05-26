@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss</artifactId>
-		<version>5.0.V47</version>
+		<version>5.0.V48</version>
 	</parent>
 
 	<artifactId>dss-pades</artifactId>
@@ -30,6 +30,13 @@
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
+			<version>${pdfbox.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox-io</artifactId>
+			<version>${pdfbox.version}</version>
 		</dependency>
 
 		<dependency>

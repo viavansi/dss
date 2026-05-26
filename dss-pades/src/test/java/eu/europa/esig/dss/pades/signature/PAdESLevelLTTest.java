@@ -28,6 +28,8 @@ import java.io.File;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.junit.Before;
@@ -79,7 +81,7 @@ public class PAdESLevelLTTest extends AbstractPAdESTestSignature {
 		try {
 			ByteArrayInputStream bais = new ByteArrayInputStream(byteArray);
 
-			PDDocument pdDoc = PDDocument.load(bais);
+			PDDocument pdDoc = Loader.loadPDF(new RandomAccessReadBuffer(bais));
 			List<PDSignature> sigs = pdDoc.getSignatureDictionaries();
 			PDSignature pdSignature = sigs.get(0);
 			byte[] contents = pdSignature.getContents(byteArray);

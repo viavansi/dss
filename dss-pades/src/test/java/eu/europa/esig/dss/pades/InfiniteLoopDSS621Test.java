@@ -38,6 +38,7 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.bouncycastle.asn1.ASN1Encodable;
@@ -124,7 +125,7 @@ public class InfiniteLoopDSS621Test {
 		FileInputStream fis = new FileInputStream(pdfFile);
 		byte[] pdfBytes = Utils.toByteArray(fis);
 
-		PDDocument document = PDDocument.load(pdfFile);
+		PDDocument document = Loader.loadPDF(pdfFile);
 		List<PDSignature> signatures = document.getSignatureDictionaries();
 		assertEquals(6, signatures.size());
 

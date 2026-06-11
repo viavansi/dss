@@ -106,11 +106,13 @@ class PdfBoxSignatureService implements PDFSignatureService {
     // PDFBox 3.x prepareIncrement() forces lazy-loading of all ObjStm-compressed objects,
     // which is ~4s for a 13MB PDF. Caching the prepared incremental update lets sign()
     // skip the second prepareIncrement() and just inject the real signature bytes.
+    // Entries are evicted after 10 minutes to reclaim memory from abandoned signing sessions.
+    private static final long CACHE_TTL_MS = 10 * 60 * 1000L;
     private static final Map<String, CachedSignature> signatureCache = Collections.synchronizedMap(
         new LinkedHashMap<String, CachedSignature>(16, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, CachedSignature> eldest) {
-                return size() > 50;
+                return size() > 50 || eldest.getValue().isExpired();
             }
         }
     );
@@ -122,11 +124,16 @@ class PdfBoxSignatureService implements PDFSignatureService {
         // inside PAdESService.signDocument() can return immediately without re-running
         // prepareIncrement() on the same PDF.
         final byte[] messageDigest;
+        private final long createdAt = System.currentTimeMillis();
 
         CachedSignature(byte[] incrementalUpdate, int[] byteRange, byte[] messageDigest) {
             this.incrementalUpdate = incrementalUpdate;
             this.byteRange = byteRange;
             this.messageDigest = messageDigest;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - createdAt > CACHE_TTL_MS;
         }
     }
 
@@ -145,8 +152,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
             if (!parameters.isExternalPkcs7Signature()) {
                 String cacheKey = buildCacheKey(pdfBytes, parameters);
                 CachedSignature existing = signatureCache.get(cacheKey);
-                if (existing != null && existing.messageDigest != null) {
-                    return existing.messageDigest;
+                if (existing != null) {
+                    if (existing.isExpired()) {
+                        signatureCache.remove(cacheKey);
+                    } else if (existing.messageDigest != null) {
+                        return existing.messageDigest;
+                    }
                 }
             }
 
@@ -185,7 +196,7 @@ class PdfBoxSignatureService implements PDFSignatureService {
             if (!parameters.isExternalPkcs7Signature()) {
                 String ck = buildCacheKey(pdfBytes, parameters);
                 CachedSignature cached = signatureCache.remove(ck);
-                if (cached != null) {
+                if (cached != null && !cached.isExpired()) {
                     boolean ok = tryInjectSignature(pdfBytes, cached, signatureValue, signedStream);
                     if (ok) return;
                 }

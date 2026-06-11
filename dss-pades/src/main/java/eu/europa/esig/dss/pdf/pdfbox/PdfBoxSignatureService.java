@@ -93,6 +93,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,17 +102,70 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
     private static final Logger logger = LoggerFactory.getLogger(PdfBoxSignatureService.class);
 
+    // Short-lived cache: avoids running prepareIncrement() twice per signing cycle.
+    // PDFBox 3.x prepareIncrement() forces lazy-loading of all ObjStm-compressed objects,
+    // which is ~4s for a 13MB PDF. Caching the prepared incremental update lets sign()
+    // skip the second prepareIncrement() and just inject the real signature bytes.
+    private static final Map<String, CachedSignature> signatureCache = Collections.synchronizedMap(
+        new LinkedHashMap<String, CachedSignature>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CachedSignature> eldest) {
+                return size() > 50;
+            }
+        }
+    );
+
+    private static final class CachedSignature {
+        final byte[] incrementalUpdate;
+        final int[] byteRange;
+        // Cached return value of the first digest() call so the second digest() call
+        // inside PAdESService.signDocument() can return immediately without re-running
+        // prepareIncrement() on the same PDF.
+        final byte[] messageDigest;
+
+        CachedSignature(byte[] incrementalUpdate, int[] byteRange, byte[] messageDigest) {
+            this.incrementalUpdate = incrementalUpdate;
+            this.byteRange = byteRange;
+            this.messageDigest = messageDigest;
+        }
+    }
+
     @Override
     public byte[] digest(final InputStream toSignDocument, final PAdESSignatureParameters parameters, final DigestAlgorithm digestAlgorithm) throws DSSException {
 
         final byte[] signatureValue = DSSUtils.EMPTY_BYTE_ARRAY;
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PDDocument pdDocument = null;
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try {
-            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(toSignDocument), parameters.getPassword());
-            PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
+            final byte[] pdfBytes = IOUtils.toByteArray(toSignDocument);
 
-            return signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
+            // Second digest() call: PAdESService.signDocument() calls digest() before sign().
+            // If there is already a cached entry with a messageDigest, return it immediately
+            // without running prepareIncrement() a second time.
+            if (!parameters.isExternalPkcs7Signature()) {
+                String cacheKey = buildCacheKey(pdfBytes, parameters);
+                CachedSignature existing = signatureCache.get(cacheKey);
+                if (existing != null && existing.messageDigest != null) {
+                    return existing.messageDigest;
+                }
+            }
+
+            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(pdfBytes), parameters.getPassword());
+            PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
+            byte[] digestResult = signDocumentAndReturnDigest(parameters, signatureValue, outputStream, pdDocument, pdSignature, digestAlgorithm);
+
+            if (!parameters.isExternalPkcs7Signature()) {
+                byte[] preparedBytes = outputStream.toByteArray();
+                if (preparedBytes.length > pdfBytes.length) {
+                    byte[] incrementalUpdate = Arrays.copyOfRange(preparedBytes, pdfBytes.length, preparedBytes.length);
+                    int[] byteRange = extractByteRange(preparedBytes);
+                    if (byteRange != null) {
+                        signatureCache.put(buildCacheKey(pdfBytes, parameters), new CachedSignature(incrementalUpdate, byteRange, digestResult));
+                    }
+                }
+            }
+
+            return digestResult;
         } catch (IOException e) {
             throw new DSSException(e);
         } finally {
@@ -126,7 +180,18 @@ class PdfBoxSignatureService implements PDFSignatureService {
 
         PDDocument pdDocument = null;
         try {
-            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(pdfData), parameters.getPassword());
+            final byte[] pdfBytes = IOUtils.toByteArray(pdfData);
+
+            if (!parameters.isExternalPkcs7Signature()) {
+                String ck = buildCacheKey(pdfBytes, parameters);
+                CachedSignature cached = signatureCache.remove(ck);
+                if (cached != null) {
+                    boolean ok = tryInjectSignature(pdfBytes, cached, signatureValue, signedStream);
+                    if (ok) return;
+                }
+            }
+
+            pdDocument = Loader.loadPDF(new RandomAccessReadBuffer(pdfBytes), parameters.getPassword());
             final PDSignature pdSignature = createSignatureDictionary(parameters, pdDocument);
             signDocumentAndReturnDigest(parameters, signatureValue, signedStream, pdDocument, pdSignature, digestAlgorithm);
         } catch (IOException e) {
@@ -1013,5 +1078,72 @@ class PdfBoxSignatureService implements PDFSignatureService {
             streams.put(token.getDSSIdAsString(), stream);
         }
         return stream;
+    }
+
+    private static String buildCacheKey(byte[] pdfBytes, PAdESSignatureParameters parameters) {
+        byte[] pdfHash = DSSUtils.digest(DigestAlgorithm.SHA256, pdfBytes);
+        String hashHex = Utils.toHex(pdfHash);
+        String detId = parameters.getDeterministicId();
+        if (detId != null && !detId.isEmpty()) {
+            return hashHex + "_" + detId;
+        }
+        return hashHex + "_" + parameters.bLevel().getSigningDate().getTime();
+    }
+
+    // Scans backward for the last /ByteRange [ token and parses its four integer values.
+    private static int[] extractByteRange(byte[] pdfBytes) {
+        byte[] marker = "/ByteRange [".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        int pos = -1;
+        for (int i = pdfBytes.length - marker.length; i >= 0; i--) {
+            boolean found = true;
+            for (int j = 0; j < marker.length; j++) {
+                if (pdfBytes[i + j] != marker[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                pos = i + marker.length;
+                break;
+            }
+        }
+        if (pos < 0) {
+            return null;
+        }
+        int[] values = new int[4];
+        int count = 0;
+        int i = pos;
+        while (count < 4 && i < pdfBytes.length) {
+            while (i < pdfBytes.length && (pdfBytes[i] == ' ' || pdfBytes[i] == '\r' || pdfBytes[i] == '\n' || pdfBytes[i] == '\t')) {
+                i++;
+            }
+            if (i >= pdfBytes.length || pdfBytes[i] == ']') {
+                break;
+            }
+            long num = 0;
+            while (i < pdfBytes.length && pdfBytes[i] >= '0' && pdfBytes[i] <= '9') {
+                num = num * 10 + (pdfBytes[i] - '0');
+                i++;
+            }
+            values[count++] = (int) num;
+        }
+        return count == 4 ? values : null;
+    }
+
+    private static boolean tryInjectSignature(byte[] pdfBytes, CachedSignature cached, byte[] signatureValue, OutputStream signedStream) throws IOException {
+        int[] byteRange = cached.byteRange;
+        byte[] sigHex = org.apache.pdfbox.util.Hex.getBytes(signatureValue);
+        // byteRange[1] = offset of '<', byteRange[2] = offset after '>', so capacity excludes both delimiters
+        int placeholderCapacity = byteRange[2] - byteRange[1] - 2;
+        if (sigHex.length > placeholderCapacity) {
+            logger.warn("Signature ({} hex bytes) exceeds placeholder capacity ({}), falling back to full signing", sigHex.length, placeholderCapacity);
+            return false;
+        }
+        byte[] output = new byte[pdfBytes.length + cached.incrementalUpdate.length];
+        System.arraycopy(pdfBytes, 0, output, 0, pdfBytes.length);
+        System.arraycopy(cached.incrementalUpdate, 0, output, pdfBytes.length, cached.incrementalUpdate.length);
+        System.arraycopy(sigHex, 0, output, byteRange[1] + 1, sigHex.length);
+        signedStream.write(output);
+        return true;
     }
 }

@@ -1094,6 +1094,12 @@ class PdfBoxSignatureService implements PDFSignatureService {
     private static String buildCacheKey(byte[] pdfBytes, PAdESSignatureParameters parameters) {
         byte[] pdfHash = DSSUtils.digest(DigestAlgorithm.SHA256, pdfBytes);
         String hashHex = Utils.toHex(pdfHash);
+        // Prefer customId (viafirma signatureCode — unique per session) to avoid collisions
+        // when the same PDF is signed concurrently with the same certificate.
+        String customId = parameters.getCustomId();
+        if (customId != null && !customId.isEmpty()) {
+            return hashHex + "_" + customId;
+        }
         String detId = parameters.getDeterministicId();
         if (detId != null && !detId.isEmpty()) {
             return hashHex + "_" + detId;
